@@ -4,6 +4,10 @@ using RentalPeAPI.Monitoring.Domain.Entities;
 
 namespace RentalPeAPI.Monitoring.Infrastructure.Persistence.EFC.Configuration;
 
+/// <summary>
+/// Configuración de Entity Framework Core para la entidad Notification.
+/// Alineada con SpaceId en lugar del obsoleto ProjectId.
+/// </summary>
 public class NotificationConfiguration : IEntityTypeConfiguration<Notification>
 {
     public void Configure(EntityTypeBuilder<Notification> builder)
@@ -17,14 +21,14 @@ public class NotificationConfiguration : IEntityTypeConfiguration<Notification>
             .HasColumnName("id")
             .IsRequired();
 
-        // FK a User (del lado dbjson) -> "userId"
+        // FK a User (del lado DDD) -> "user_id"
         builder.Property(n => n.UserId)
             .HasColumnName("user_id")
             .IsRequired();
 
-        // FK a Project -> "projectId"
-        builder.Property(n => n.ProjectId)
-            .HasColumnName("project_id")
+        // FK a Space (reemplaza el obsoleto project_id) -> "space_id"
+        builder.Property(n => n.SpaceId)
+            .HasColumnName("space_id")
             .IsRequired();
 
         // IncidentId puede ser null (no todas las notificaciones vienen de un incidente)
@@ -38,7 +42,7 @@ public class NotificationConfiguration : IEntityTypeConfiguration<Notification>
             .HasMaxLength(150)
             .IsRequired(false);
 
-        // "message" en el dbjson
+        // "message"
         builder.Property(n => n.Message)
             .HasColumnName("message")
             .HasMaxLength(1000)
@@ -54,7 +58,7 @@ public class NotificationConfiguration : IEntityTypeConfiguration<Notification>
             .HasMaxLength(20)
             .IsRequired();
 
-        // "createdAt" en el dbjson
+        // "createdAt"
         builder.Property(n => n.CreatedAt)
             .HasColumnName("created_at")
             .IsRequired();
@@ -64,7 +68,7 @@ public class NotificationConfiguration : IEntityTypeConfiguration<Notification>
             .IsRequired(false);
 
         // Índices
-        builder.HasIndex(n => n.ProjectId);
+        builder.HasIndex(n => n.SpaceId);
         builder.HasIndex(n => n.UserId);
         builder.HasIndex(n => n.IncidentId);
     }

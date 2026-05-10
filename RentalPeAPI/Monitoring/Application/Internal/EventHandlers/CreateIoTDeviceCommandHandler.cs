@@ -25,7 +25,7 @@ public class CreateIoTDeviceCommandHandler
         CancellationToken cancellationToken)
     {
         var device = new IoTDevice(
-            command.ProjectId,
+            command.SpaceId,
             command.Type,
             command.Name,
             command.SerialNumber

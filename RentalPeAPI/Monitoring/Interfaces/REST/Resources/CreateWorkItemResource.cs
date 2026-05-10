@@ -1,33 +1,35 @@
 ﻿// Monitoring/Interfaces/REST/Resources/CreateWorkItemResource.cs
+using System;
 using System.ComponentModel.DataAnnotations;
 using System.Text.Json.Serialization;
 
 namespace RentalPeAPI.Monitoring.Interfaces.REST.Resources;
 
+/// <summary>
+/// DTO para la creación de una tarea (WorkItem) vinculada a un espacio (Space).
+/// Las tareas ya no dependen de un incidente; se crean directamente para un espacio.
+/// </summary>
 public class CreateWorkItemResource
 {
-    [Required]
-    [JsonPropertyName("projectId")]
-    public int ProjectId { get; init; }          // -> "projectId"
+    [Required(ErrorMessage = "SpaceId es requerido")]
+    [JsonPropertyName("spaceId")]
+    public long SpaceId { get; set; }
 
-    [JsonPropertyName("incidentId")]
-    public int? IncidentId { get; init; }        // -> "incidentId" (puede ser null si no hay incidente)
+    [Required(ErrorMessage = "AssignedToRemodelerId es requerido")]
+    [JsonPropertyName("assignedToRemodelerId")]
+    public Guid AssignedToRemodelerId { get; set; }
 
-    [Required]
-    [JsonPropertyName("assignedToUserId")]
-    public int AssignedToUserId { get; init; }   // -> "assignedToUserId"
-
-    [Required]
+    [Required(ErrorMessage = "Description es requerida")]
+    [StringLength(500, ErrorMessage = "Description no puede exceder 500 caracteres")]
     [JsonPropertyName("description")]
-    public string Description { get; init; } = default!; // -> "description"
+    public string Description { get; set; } = default!;
 
     public CreateWorkItemResource() { }
 
-    public CreateWorkItemResource(int projectId, int? incidentId, int assignedToUserId, string description)
+    public CreateWorkItemResource(long spaceId, Guid assignedToRemodelerId, string description)
     {
-        ProjectId = projectId;
-        IncidentId = incidentId;
-        AssignedToUserId = assignedToUserId;
+        SpaceId = spaceId;
+        AssignedToRemodelerId = assignedToRemodelerId;
         Description = description;
     }
 }

@@ -29,7 +29,6 @@ public class AppDbContext(DbContextOptions options) : DbContext(options)
 
     // --- DBSETS DEL BOUNDED CONTEXT MONITORING ---
     public DbSet<IoTDevice> IoTDevices { get; set; }
-    public DbSet<Project> Projects { get; set; }
     public DbSet<Reading> Readings { get; set; }
     public DbSet<WorkItem> Tasks { get; set; }
     public DbSet<Notification> Notifications { get; set; }
@@ -66,7 +65,6 @@ public class AppDbContext(DbContextOptions options) : DbContext(options)
         builder.ApplyConfiguration(new ServiceConfiguration());
         
         // 4. Monitoring BC Configuration
-        builder.ApplyConfiguration(new ProjectConfiguration()); 
         builder.ApplyConfiguration(new IoTDeviceConfiguration());
         builder.ApplyConfiguration(new ReadingConfiguration());
         builder.ApplyConfiguration(new WorkItemConfiguration());

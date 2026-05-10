@@ -26,7 +26,7 @@ public class IngestReadingCommandHandler : IRequestHandler<IngestReadingCommand,
         // Crear la entidad Reading a partir del comando
         var reading = new Reading(
             command.IoTDeviceId,
-            command.ProjectId,
+            command.SpaceId,
             command.MetricName,
             command.Value,
             command.Unit,

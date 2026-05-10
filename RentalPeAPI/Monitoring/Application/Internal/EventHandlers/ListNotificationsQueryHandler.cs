@@ -22,7 +22,7 @@ public class ListNotificationsQueryHandler
         ListNotificationsQuery query, 
         CancellationToken cancellationToken)
     {
-        // Lista las notificaciones por proyecto
-        return await _notificationRepository.ListByProjectIdAsync(query.ProjectId);
+        // Lista las notificaciones por espacio
+        return await _notificationRepository.ListBySpaceIdAsync(query.SpaceId);
     }
 }

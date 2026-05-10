@@ -1,4 +1,6 @@
 ﻿// Monitoring/Interfaces/REST/Controllers/TasksController.cs
+using System;
+using System.Threading.Tasks;
 using MediatR;
 using Microsoft.AspNetCore.Mvc;
 using RentalPeAPI.Monitoring.Application.Internal.CommandServices;
@@ -6,6 +8,10 @@ using RentalPeAPI.Monitoring.Interfaces.REST.Resources;
 
 namespace RentalPeAPI.Monitoring.Interfaces.REST.Controllers;
 
+/// <summary>
+/// Controlador para la gestión de tareas (WorkItems) vinculadas a espacios (Spaces).
+/// Reemplaza la lógica temporal de conversión de bytes por IDs de tipo Guid.
+/// </summary>
 [ApiController]
 [Route("api/v1/monitoring/[controller]")] // -> /api/v1/monitoring/tasks
 public class TasksController : ControllerBase
@@ -18,20 +24,20 @@ public class TasksController : ControllerBase
     }
 
     /// <summary>
-    /// Crea una nueva orden de trabajo (work item), usualmente en respuesta a un incidente.
+    /// Crea una nueva orden de trabajo (work item) vinculada a un espacio específico.
+    /// El remodelador asignado es identificado por su Guid.
     /// </summary>
+    /// <param name="resource">DTO con los datos de la nueva tarea</param>
+    /// <returns>ID de la tarea creada</returns>
     [HttpPost]
     public async Task<IActionResult> CreateTask([FromBody] CreateWorkItemResource resource)
     {
         if (!ModelState.IsValid)
             return BadRequest(ModelState);
 
-        // Convertir int a Guid (generar un GUID basado en el ID del usuario)
-        var assignedToGuid = new Guid(resource.AssignedToUserId, 0, 0, new byte[8]);
-
         var command = new CreateWorkItemCommand(
-            resource.ProjectId,
-            assignedToGuid,
+            resource.SpaceId,
+            resource.AssignedToRemodelerId,
             resource.Description
         );
 
@@ -40,12 +46,13 @@ public class TasksController : ControllerBase
         return CreatedAtAction(
             nameof(GetTaskById),
             new { id = taskId },
-            new { taskId } // el body de respuesta
+            new { taskId }
         );
     }
 
     /// <summary>
-    /// Solo endpoint de prueba: confirma que la tarea fue creada.
+    /// Obtiene los detalles de una tarea específica.
+    /// (Endpoint de prueba/confirmación)
     /// </summary>
     [HttpGet("{id:int}")]
     public IActionResult GetTaskById(int id)

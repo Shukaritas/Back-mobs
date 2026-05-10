@@ -2,13 +2,8 @@
 using System.Threading.Tasks;
 using MediatR;
 
-
-
 namespace RentalPeAPI.Monitoring.Application.ACL;
 
-
-using CreateProjectCommand =
-    RentalPeAPI.Monitoring.Application.Internal.CommandServices.CreateProjectCommand;
 using CreateIoTDeviceCommand =
     RentalPeAPI.Monitoring.Application.Internal.CommandServices.CreateIoTDeviceCommand;
 using IngestReadingCommand =
@@ -16,8 +11,11 @@ using IngestReadingCommand =
 using CreateWorkItemCommand =
     RentalPeAPI.Monitoring.Application.Internal.CommandServices.CreateWorkItemCommand;
 
-
-
+/// <summary>
+/// Facade Anti-Corruption Layer para Monitoring BC.
+/// Proporciona métodos de acceso para otros BCs sin exponer detalles internos.
+/// Alineado con SpaceId como llave foránea unificada.
+/// </summary>
 public class MonitoringContextFacade : IMonitoringContextFacade
 {
     private readonly IMediator _mediator;
@@ -28,92 +26,61 @@ public class MonitoringContextFacade : IMonitoringContextFacade
     }
 
     /// <summary>
-    /// Crea un proyecto en el BC Monitoring.
-    /// </summary>
-    public async Task<int> CreateProjectAsync(
-        long propertyId,
-        Guid userId,
-        string name,
-        string description,
-        DateTime startDate,
-        DateTime endDate)
-    {
-        // 👇 Convertimos el long a int porque el CreateProjectCommand
-        // está esperando int/int?.
-        var command = new CreateProjectCommand(
-            PropertyId:  (int)propertyId,
-            UserId:      userId,
-            Name:        name,
-            Description: description,
-            StartDate:   startDate,
-            EndDate:     endDate
-        );
-
-        var projectId = await _mediator.Send(command);
-        return projectId;
-    }
-
-    /// <summary>
-    /// Registra un nuevo IoTDevice en un proyecto.
+    /// Registra un nuevo IoTDevice en un espacio (Space).
     /// </summary>
     public async Task<int> RegisterIoTDeviceAsync(
-        int projectId,
+        long spaceId,
         string name,
         string serialNumber,
         string type)
     {
         var command = new CreateIoTDeviceCommand(
-            ProjectId:    projectId,
+            SpaceId:      spaceId,
+            Type:         type,
             Name:         name,
-            SerialNumber: serialNumber,
-            Type:         type
+            SerialNumber: serialNumber
         );
 
         var device = await _mediator.Send(command);
 
-        // 👇 El Id del device es long, pero el método devuelve int.
-        // Hacemos cast explícito para que compile.
+        // El Id del device es long, devolvemos como int
         return (int)device.Id;
     }
 
     /// <summary>
-    /// Envía una lectura de telemetría al BC Monitoring.
+    /// Envía una lectura de telemetría para un espacio específico.
     /// </summary>
     public async Task IngestTelemetryReadingAsync(
-        int projectId,
-        int iotDeviceId,
+        long spaceId,
+        long iotDeviceId,
         string metricName,
         decimal value,
         string unit,
         DateTime timestamp)
     {
         var command = new IngestReadingCommand(
-            ProjectId:   projectId,
-            IoTDeviceId: iotDeviceId,
-            MetricName:  metricName,
-            Value:       value,
-            Unit:        unit,
-            Timestamp:   timestamp
+            SpaceId:      spaceId,
+            IoTDeviceId:  iotDeviceId,
+            MetricName:   metricName,
+            Value:        value,
+            Unit:         unit,
+            Timestamp:    timestamp
         );
 
         await _mediator.Send(command);
     }
 
     /// <summary>
-    /// Crea una WorkItem asociada a un proyecto (y opcionalmente a un incidente).
+    /// Crea una WorkItem asociada a un espacio (Space).
     /// </summary>
-    public async Task<int> CreateWorkItemForIncidentAsync(
-        int projectId,
-        int? incidentId,
-        int assignedToUserId,
+    public async Task<int> CreateWorkItemForSpaceAsync(
+        long spaceId,
+        Guid assignedToRemodelerId,
         string description)
     {
-        // Convertir int a Guid (generar un GUID basado en el ID del usuario)
-        var assignedToGuid = new Guid(assignedToUserId, 0, 0, new byte[8]);
-
         var command = new CreateWorkItemCommand(
-            SpaceId: projectId,
-            AssignedToRemodelerId: assignedToGuid,
+            SpaceId: spaceId,
+            AssignedToRemodelerId: assignedToRemodelerId,
             Description: description
         );
 

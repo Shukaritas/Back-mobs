@@ -2,13 +2,13 @@
 
 namespace RentalPeAPI.Monitoring.Domain.Model.Aggregates;
 
+/// <summary>
+/// Dispositivo IoT vinculado a un espacio (Space). Mantiene desacoplamiento estricto por ID.
+/// </summary>
 public class IoTDevice
 {
     public long Id { get; private set; }
     public long SpaceId { get; private set; }
-    
-    // Alias para SpaceId (usado en algunos contextos como ProjectId)
-    public long ProjectId => SpaceId;
 
     public string Name { get; private set; } = string.Empty;      // columna NOT NULL en MySQL
     public string SerialNumber { get; private set; } = string.Empty;

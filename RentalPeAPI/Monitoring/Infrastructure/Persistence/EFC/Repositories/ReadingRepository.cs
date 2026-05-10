@@ -22,7 +22,7 @@ public class ReadingRepository : IReadingRepository
         await _context.Readings.AddAsync(reading);
     }
 
-    public async Task<Reading?> FindLatestByDeviceIdAsync(int deviceId)
+    public async Task<Reading?> FindLatestByDeviceIdAsync(long deviceId)
     {
         return await _context.Readings
             .Where(r => r.IoTDeviceId == deviceId)

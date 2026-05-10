@@ -35,25 +35,14 @@
 
     <ItemGroup>
         <!-- Folders -->
-        <Folder Include="Combo\Domain\Aggregates\Enums\" />
 
         <Folder Include="Monitoring\Application\ACL\" />
         <Folder Include="Monitoring\Application\Internal\CommandServices\" />
         <Folder Include="Monitoring\Domain\Model\" />
         <Folder Include="Monitoring\Domain\Repositories\" />
         <Folder Include="Monitoring\Domain\Services\" />
-        <Folder Include="Monitoring\Infrastructure\Interfaces\ASP\Configuration\Extensions\" />
-        <Folder Include="Monitoring\Infrastructure\Persistence\EFC\Configuration\Extensions\" />
         <Folder Include="Monitoring\Infrastructure\Persistence\EFC\Repositories\" />
-        <Folder Include="Monitoring\Interfaces\ACL\" />
-        <Folder Include="Monitoring\Interfaces\REST\Transform\" />
         <Folder Include="Payments\Infrastructure\Persistence\EFC\Configuration\Extensions\" />
-        <Folder Include="Profiles\Infrastructure\Interfaces\ASP\Configuration\Extensions\" />
-        <Folder Include="Profiles\Infrastructure\Persistence\EFC\Configuration\Extensions\" />
-        <Folder Include="Providers\Domain\Model\ValueObjects\" />
-        <Folder Include="Providers\Infrastructure\Interfaces\ASP\Configuration\Extensions\" />
-        <Folder Include="Providers\Infrastructure\Persistence\EFC\Configuration\extensions\" />
-        <Folder Include="subscriptions\Infrastructure\Interfaces\ASP\Configuration\Extensions\" />
         <Folder Include="User\Application\ACL\" />
         <Folder Include="User\Application\Internal\QueryServices\" />
         <Folder Include="User\Domain\Services\" />

@@ -120,10 +120,8 @@ builder.Services.AddScoped<ISpaceRepository, SpaceRepository>();
 // Monitoring
 builder.Services.AddScoped<IReadingRepository, ReadingRepository>();
 builder.Services.AddScoped<IWorkItemRepository, WorkItemRepository>();
-builder.Services.AddScoped<IProjectRepository, ProjectRepository>();
 builder.Services.AddScoped<IIoTDeviceRepository, IoTDeviceRepository>();
 builder.Services.AddScoped<INotificationRepository, NotificationRepository>();
-builder.Services.AddScoped<MonitoringContextFacade>();
 
 // Kestrel: solo HTTP para evitar warning de certificado y mixed content
 //builder.WebHost.ConfigureKestrel(o => o.ListenLocalhost(52888));

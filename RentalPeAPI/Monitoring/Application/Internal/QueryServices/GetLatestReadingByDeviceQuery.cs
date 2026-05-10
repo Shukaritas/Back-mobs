@@ -4,5 +4,8 @@ using RentalPeAPI.Monitoring.Interfaces.REST.Resources;
 
 namespace RentalPeAPI.Monitoring.Application.Internal.QueryServices;
 
-public record GetLatestReadingByDeviceQuery(int IoTDeviceId)
+/// <summary>
+/// Query para obtener la última lectura registrada para un dispositivo IoT.
+/// </summary>
+public record GetLatestReadingByDeviceQuery(long IoTDeviceId)
     : IRequest<ReadingResource?>;

@@ -5,29 +5,32 @@ using System.Text.Json.Serialization;
 
 namespace RentalPeAPI.Monitoring.Interfaces.REST.Resources;
 
+/// <summary>
+/// DTO para la ingesta de lecturas de telemetría de dispositivos IoT en un espacio.
+/// </summary>
 public class IngestReadingResource
 {
-    [Required]
-    [JsonPropertyName("projectId")]
-    public int ProjectId { get; init; }
+    [Required(ErrorMessage = "SpaceId es requerido")]
+    [JsonPropertyName("spaceId")]
+    public long SpaceId { get; init; }
 
-    [Required]
+    [Required(ErrorMessage = "IoTDeviceId es requerido")]
     [JsonPropertyName("iotDeviceId")]
-    public int IoTDeviceId { get; init; }
+    public long IoTDeviceId { get; init; }
 
-    [Required]
+    [Required(ErrorMessage = "MetricName es requerido")]
     [JsonPropertyName("metricName")]
     public string MetricName { get; init; } = default!;
 
-    [Required]
+    [Required(ErrorMessage = "Value es requerido")]
     [JsonPropertyName("value")]
     public decimal Value { get; init; }
 
-    [Required]
+    [Required(ErrorMessage = "Unit es requerido")]
     [JsonPropertyName("unit")]
     public string Unit { get; init; } = default!;
 
-    [Required]
+    [Required(ErrorMessage = "Timestamp es requerido")]
     [JsonPropertyName("timestamp")]
     public DateTime Timestamp { get; init; }
 

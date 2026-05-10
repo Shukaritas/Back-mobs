@@ -1,4 +1,5 @@
-﻿using System.Linq;
+﻿using System;
+using System.Linq;
 using System.Threading.Tasks;
 using MediatR;
 using Microsoft.AspNetCore.Mvc;
@@ -8,6 +9,9 @@ using RentalPeAPI.Monitoring.Interfaces.REST.Resources;
 
 namespace RentalPeAPI.Monitoring.Interfaces.REST.Controllers;
 
+/// <summary>
+/// Controlador para dispositivos IoT vinculados a espacios (Spaces).
+/// </summary>
 [ApiController]
 [Route("api/v1/monitoring/[controller]")]
 public class IoTDevicesController : ControllerBase
@@ -19,11 +23,14 @@ public class IoTDevicesController : ControllerBase
         _mediator = mediator;
     }
 
+    /// <summary>
+    /// Crea un nuevo dispositivo IoT para un espacio específico.
+    /// </summary>
     [HttpPost]
     public async Task<IActionResult> CreateDevice([FromBody] CreateIoTDeviceResource resource)
     {
         var command = new CreateIoTDeviceCommand(
-            resource.ProjectId,
+            resource.SpaceId,
             resource.Type,
             resource.Name,
             resource.SerialNumber
@@ -33,28 +40,31 @@ public class IoTDevicesController : ControllerBase
 
         var deviceResource = new IoTDeviceResource(
             device.Id,
-            device.ProjectId,
+            device.SpaceId,
             device.Type,
             device.Status,
             device.InstalledAt
         );
 
         return CreatedAtAction(
-            nameof(ListDevicesByProject),
-            new { projectId = device.ProjectId },
+            nameof(ListDevicesBySpace),
+            new { spaceId = device.SpaceId },
             deviceResource
         );
     }
 
-    [HttpGet("project/{projectId:long}")]
-    public async Task<IActionResult> ListDevicesByProject(long projectId)
+    /// <summary>
+    /// Lista todos los dispositivos IoT de un espacio específico.
+    /// </summary>
+    [HttpGet("space/{spaceId:long}")]
+    public async Task<IActionResult> ListDevicesBySpace(long spaceId)
     {
-        var query = new ListIoTDevicesByProjectQuery(projectId);
+        var query = new ListIoTDevicesBySpaceQuery(spaceId);
         var devices = await _mediator.Send(query);
 
         var resources = devices.Select(d => new IoTDeviceResource(
             d.Id,
-            d.ProjectId,
+            d.SpaceId,
             d.Type,
             d.Status,
             d.InstalledAt

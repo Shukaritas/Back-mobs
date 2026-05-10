@@ -5,5 +5,8 @@ using RentalPeAPI.Monitoring.Domain.Entities;
 
 namespace RentalPeAPI.Monitoring.Application.Internal.QueryServices;
 
-public record ListNotificationsQuery(int ProjectId) 
+/// <summary>
+/// Query para listar notificaciones asociadas a un espacio específico.
+/// </summary>
+public record ListNotificationsQuery(long SpaceId) 
     : IRequest<IEnumerable<Notification>>;

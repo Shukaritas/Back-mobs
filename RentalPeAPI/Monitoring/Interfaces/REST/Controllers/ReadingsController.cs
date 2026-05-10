@@ -1,4 +1,6 @@
 ﻿// Monitoring/Interfaces/REST/Controllers/ReadingsController.cs
+using System;
+using System.Threading.Tasks;
 using MediatR;
 using Microsoft.AspNetCore.Mvc;
 using RentalPeAPI.Monitoring.Application.Internal.CommandServices;
@@ -7,6 +9,9 @@ using RentalPeAPI.Monitoring.Interfaces.REST.Resources;
 
 namespace RentalPeAPI.Monitoring.Interfaces.REST.Controllers;
 
+/// <summary>
+/// Controlador para la ingesta y consulta de lecturas de telemetría de dispositivos IoT.
+/// </summary>
 [ApiController]
 [Route("api/v1/monitoring/[controller]")]
 public class ReadingsController : ControllerBase
@@ -19,7 +24,7 @@ public class ReadingsController : ControllerBase
     }
 
     /// <summary>
-    /// POST: Ingesta de telemetría de dispositivos IoT.
+    /// POST: Ingesta de telemetría de dispositivos IoT vinculados a un espacio.
     /// </summary>
     [HttpPost]
     public async Task<IActionResult> IngestReading([FromBody] IngestReadingResource resource)
@@ -28,7 +33,7 @@ public class ReadingsController : ControllerBase
             return BadRequest(ModelState);
 
         var command = new IngestReadingCommand(
-            resource.ProjectId,     // 👈 OJO: este es el orden correcto del command
+            resource.SpaceId,
             resource.IoTDeviceId,
             resource.MetricName,
             resource.Value,
@@ -44,8 +49,8 @@ public class ReadingsController : ControllerBase
     /// <summary>
     /// GET: Obtiene la última lectura registrada para un dispositivo IoT.
     /// </summary>
-    [HttpGet("device/{iotDeviceId:int}/latest")]
-    public async Task<IActionResult> GetLatestByDevice(int iotDeviceId)
+    [HttpGet("device/{iotDeviceId:long}/latest")]
+    public async Task<IActionResult> GetLatestByDevice(long iotDeviceId)
     {
         var query = new GetLatestReadingByDeviceQuery(iotDeviceId);
         var reading = await _mediator.Send(query);

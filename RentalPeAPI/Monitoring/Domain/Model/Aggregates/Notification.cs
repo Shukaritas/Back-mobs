@@ -3,15 +3,19 @@ using System;
 
 namespace RentalPeAPI.Monitoring.Domain.Entities;
 
+/// <summary>
+/// Notificación de un evento en una obra (Space).
+/// Alineada con el modelo DDD, sin dependencias circulares hacia Property.
+/// </summary>
 public class Notification
 {
     public int Id { get; set; }
 
-    // "userId" en el JSON
-    public int UserId { get; set; }
+    // Identificador del usuario que recibe la notificación (Guid from User BC)
+    public Guid UserId { get; set; }
 
-    // "projectId" en el JSON
-    public int ProjectId { get; set; }
+    // Referencia al espacio (Space) - reemplaza el obsoleto ProjectId
+    public long SpaceId { get; set; }
 
     // Puede existir o no incidente asociado: por eso nullable
     public int? IncidentId { get; set; }
@@ -22,13 +26,13 @@ public class Notification
     // "message" en el JSON
     public string Message { get; set; } = string.Empty;
 
-    // Tipo de notificación interno (no lo usa el dbjson)
+    // Tipo de notificación interno
     public string Type { get; set; } = "InApp"; 
 
-    // Estado interno (no está en el dbjson)
+    // Estado interno
     public string Status { get; set; } = "unread";
 
-    // "createdAt" en el JSON
+    // Fecha de creación
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
     // Si más adelante tienes envío por mail/push, puedes usarlo
@@ -36,15 +40,15 @@ public class Notification
 
     public Notification() { }
 
-    // Ctor principal alineado al dbjson
-    public Notification(int userId, int projectId, string message,
+    // Ctor principal alineado con la nueva estructura
+    public Notification(Guid userId, long spaceId, string message,
         int? incidentId = null,
         string? recipient = null,
         string type = "InApp",
         string status = "unread")
     {
         UserId = userId;
-        ProjectId = projectId;
+        SpaceId = spaceId;
         Message = message;
 
         IncidentId = incidentId;

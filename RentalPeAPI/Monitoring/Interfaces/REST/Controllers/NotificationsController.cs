@@ -1,4 +1,6 @@
 ﻿// Monitoring/Interfaces/REST/Controllers/NotificationsController.cs
+using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using MediatR;
@@ -8,6 +10,9 @@ using RentalPeAPI.Monitoring.Interfaces.REST.Resources;
 
 namespace RentalPeAPI.Monitoring.Interfaces.REST.Controllers;
 
+/// <summary>
+/// Controlador para el acceso a notificaciones de espacios (Spaces).
+/// </summary>
 [ApiController]
 [Route("api/v1/monitoring/[controller]")] // Ruta: /api/v1/monitoring/notifications
 public class NotificationsController : ControllerBase
@@ -20,20 +25,19 @@ public class NotificationsController : ControllerBase
     }
 
     /// <summary>
-    /// GET: Obtiene el historial de notificaciones para un proyecto,
-    /// con el mismo shape que el "notifications" del db.json.
+    /// GET: Obtiene el historial de notificaciones para un espacio específico.
     /// </summary>
-    [HttpGet("project/{projectId:int}")]
-    public async Task<IActionResult> ListNotificationsByProject(int projectId)
+    [HttpGet("space/{spaceId:long}")]
+    public async Task<IActionResult> ListNotificationsBySpace(long spaceId)
     {
-        var query = new ListNotificationsQuery(projectId);
+        var query = new ListNotificationsQuery(spaceId);
         var notifications = await _mediator.Send(query);
 
         // Mapear entidad de dominio -> DTO para el front
         var resources = notifications.Select(n => new NotificationResource(
             n.Id,
             n.UserId,
-            n.ProjectId,
+            n.SpaceId,
             n.Message,
             n.CreatedAt
         ));
