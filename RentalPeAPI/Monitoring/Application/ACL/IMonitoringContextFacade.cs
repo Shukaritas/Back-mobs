@@ -37,6 +37,9 @@ public interface IMonitoringContextFacade
     /// </summary>
     Task<int> CreateWorkItemForSpaceAsync(
         long spaceId,
-        Guid assignedToRemodelerId,
-        string description);
+        Guid createdByUserId,
+        string title,
+        string description,
+        DateTime plannedStartDate,
+        DateTime plannedEndDate);
 }

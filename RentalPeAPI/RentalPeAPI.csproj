@@ -37,7 +37,6 @@
         <!-- Folders -->
 
         <Folder Include="Monitoring\Application\ACL\" />
-        <Folder Include="Monitoring\Application\Internal\CommandServices\" />
         <Folder Include="Monitoring\Domain\Model\" />
         <Folder Include="Monitoring\Domain\Repositories\" />
         <Folder Include="Monitoring\Domain\Services\" />

@@ -8,6 +8,10 @@ using RentalPeAPI.Shared.Domain.Repositories;
 
 namespace RentalPeAPI.Monitoring.Application.Internal.CommandServices;
 
+/// <summary>
+/// Manejador del comando CreateWorkItemCommand.
+/// Crea una nueva tarea (WorkItem) y la persiste en la base de datos.
+/// </summary>
 public class CreateWorkItemCommandHandler : IRequestHandler<CreateWorkItemCommand, int>
 {
     private readonly IWorkItemRepository _workItemRepository;
@@ -26,8 +30,11 @@ public class CreateWorkItemCommandHandler : IRequestHandler<CreateWorkItemComman
         // Crear el WorkItem a partir del comando
         var workItem = new WorkItem(
             command.SpaceId,
-            command.AssignedToRemodelerId,
-            command.Description
+            command.CreatedByUserId,
+            command.Title,
+            command.Description,
+            command.PlannedStartDate,
+            command.PlannedEndDate
         );
 
         // Guardar en la BD

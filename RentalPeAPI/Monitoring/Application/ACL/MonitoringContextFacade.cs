@@ -70,21 +70,27 @@ public class MonitoringContextFacade : IMonitoringContextFacade
         await _mediator.Send(command);
     }
 
-    /// <summary>
-    /// Crea una WorkItem asociada a un espacio (Space).
-    /// </summary>
-    public async Task<int> CreateWorkItemForSpaceAsync(
-        long spaceId,
-        Guid assignedToRemodelerId,
-        string description)
-    {
-        var command = new CreateWorkItemCommand(
-            SpaceId: spaceId,
-            AssignedToRemodelerId: assignedToRemodelerId,
-            Description: description
-        );
+     /// <summary>
+     /// Crea una WorkItem asociada a un espacio (Space).
+     /// </summary>
+     public async Task<int> CreateWorkItemForSpaceAsync(
+         long spaceId,
+         Guid createdByUserId,
+         string title,
+         string description,
+         DateTime plannedStartDate,
+         DateTime plannedEndDate)
+     {
+         var command = new CreateWorkItemCommand(
+             SpaceId: spaceId,
+             CreatedByUserId: createdByUserId,
+             Title: title,
+             Description: description,
+             PlannedStartDate: plannedStartDate,
+             PlannedEndDate: plannedEndDate
+         );
 
-        var workItemId = await _mediator.Send(command);
-        return workItemId;
-    }
+         var workItemId = await _mediator.Send(command);
+         return workItemId;
+     }
 }

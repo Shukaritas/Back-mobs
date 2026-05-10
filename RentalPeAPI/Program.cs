@@ -1,6 +1,9 @@
 using Microsoft.AspNetCore.Localization;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.IdentityModel.Tokens;
 using MediatR;
+using System.Text;
 
 // Shared
 using RentalPeAPI.Shared.Infrastructure.Persistence.EFC.Configuration;           // AppDbContext
@@ -41,6 +44,35 @@ builder.Services.AddLocalization();
 builder.Services.AddControllers(o => o.Conventions.Add(new KebabCaseRouteNamingConvention()))
     .AddDataAnnotationsLocalization();
 
+// ==== CONFIGURACIÓN DE AUTENTICACIÓN JWT ====
+var jwtKey = builder.Configuration["JwtSettings:Secret"] ?? "your-secret-key-minimum-32-characters-long";
+var jwtIssuer = builder.Configuration["JwtSettings:Issuer"] ?? "RentalPeAPI";
+var jwtAudience = builder.Configuration["JwtSettings:Audience"] ?? "RentalPeFrontend";
+
+var key = Encoding.ASCII.GetBytes(jwtKey);
+
+builder.Services.AddAuthentication(options =>
+{
+    options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
+    options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
+})
+.AddJwtBearer(options =>
+{
+    options.TokenValidationParameters = new TokenValidationParameters
+    {
+        ValidateIssuerSigningKey = true,
+        IssuerSigningKey = new SymmetricSecurityKey(key),
+        ValidateIssuer = true,
+        ValidIssuer = jwtIssuer,
+        ValidateAudience = true,
+        ValidAudience = jwtAudience,
+        ValidateLifetime = true,
+        ClockSkew = TimeSpan.Zero
+    };
+});
+
+builder.Services.AddAuthorization();
+
 // Swagger (solo Swashbuckle)
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
@@ -51,6 +83,34 @@ builder.Services.AddSwaggerGen(c =>
             .Replace("RentalPeAPI.", string.Empty)
             .Replace("+", ".")
             .Replace(".", "_"));
+
+    // ==== CONFIGURACIÓN DE SEGURIDAD JWT EN SWAGGER ====
+    c.AddSecurityDefinition("Bearer", new Microsoft.OpenApi.Models.OpenApiSecurityScheme
+    {
+        Description = "JWT Authorization header using the Bearer scheme. " +
+                      "Enter 'Bearer' [space] and then your token in the text input below. " +
+                      "Example: 'Bearer eyJhbGciOiJIUzI1NiIs...'",
+        Name = "Authorization",
+        In = Microsoft.OpenApi.Models.ParameterLocation.Header,
+        Type = Microsoft.OpenApi.Models.SecuritySchemeType.Http,
+        Scheme = "bearer",
+        BearerFormat = "JWT"
+    });
+
+    c.AddSecurityRequirement(new Microsoft.OpenApi.Models.OpenApiSecurityRequirement
+    {
+        {
+            new Microsoft.OpenApi.Models.OpenApiSecurityScheme
+            {
+                Reference = new Microsoft.OpenApi.Models.OpenApiReference
+                {
+                    Type = Microsoft.OpenApi.Models.ReferenceType.SecurityScheme,
+                    Id = "Bearer"
+                }
+            },
+            new string[] { }
+        }
+    });
 });
 
 // Monitoring ACL
@@ -158,9 +218,14 @@ app.MapGet("/", context =>
     context.Response.Redirect("/swagger", permanent: true);
     return Task.CompletedTask;
 });
+
 // Pipeline
 // app.UseHttpsRedirection(); // deshabilitado: solo HTTP
+
+// ==== AUTENTICACIÓN Y AUTORIZACIÓN ====
+app.UseAuthentication();  // DEBE ir antes de UseAuthorization
 app.UseAuthorization();
+
 app.MapControllers();
 
 app.Run();
