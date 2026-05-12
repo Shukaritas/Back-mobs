@@ -15,4 +15,7 @@ public interface IWorkItemRepository
 
     // Listar todas las tareas asociadas a un espacio
     Task<IEnumerable<WorkItem>> ListBySpaceIdAsync(long spaceId);
+
+    // Eliminar una tarea por su ID
+    Task DeleteAsync(int id);
 }

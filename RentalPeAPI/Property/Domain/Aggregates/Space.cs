@@ -77,18 +77,29 @@ public class Space
     }
 
     /// <summary>
-    /// Acepta la oferta asignando un Remodeler y cambiando el estado a Accepted.
+    /// Acepta el proyecto por parte de un remodelador.
+    /// Asigna el RemodelerId, establece AcceptedAt y cambia el Status a Accepted.
+    /// Solo se puede invocar desde estado Published.
     /// </summary>
-    public void AcceptOffer(Guid remodelerId)
+    public void AcceptProject(Guid remodelerId)
     {
         if (Status != SpaceStatus.Published)
-            throw new InvalidOperationException("Solo se pueden aceptar ofertas de espacios publicados.");
+            throw new InvalidOperationException("Solo se pueden aceptar proyectos de espacios publicados.");
         if (remodelerId == Guid.Empty)
-            throw new ArgumentException("El ID del remodeler no puede estar vacío.", nameof(remodelerId));
+            throw new ArgumentException("El ID del remodelador no puede estar vacío.", nameof(remodelerId));
 
         RemodelerId = remodelerId;
         Status = SpaceStatus.Accepted;
         AcceptedAt = DateTimeOffset.UtcNow;
+    }
+
+    /// <summary>
+    /// Método heredado para compatibilidad. Usa AcceptProject() internamente.
+    /// </summary>
+    [Obsolete("Use AcceptProject() instead.")]
+    public void AcceptOffer(Guid remodelerId)
+    {
+        AcceptProject(remodelerId);
     }
 
     /// <summary>

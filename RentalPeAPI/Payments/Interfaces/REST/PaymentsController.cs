@@ -1,4 +1,6 @@
 ﻿using System.Net.Mime;
+using System.Security.Claims;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Localization;
 using RentalPeAPI.Payments.Domain.Model.Commands.payments;
@@ -16,15 +18,19 @@ namespace RentalPeAPI.Payments.Interfaces.REST;
 [Route("api/v1/[controller]")]
 [Produces(MediaTypeNames.Application.Json)]
 [Tags("Payments")]
+[Authorize] 
 public class PaymentsController(
     IPaymentCommandService commandService,
     IPaymentQueryService queryService,
     IStringLocalizer<SharedResource> localizer) : ControllerBase
 {
     [HttpGet("{id:int}")]
+    [Authorize(Roles = "Homeowner,Remodeler")]
     [SwaggerOperation(Summary = "Gets a payment by id", OperationId = "GetPaymentById")]
     [SwaggerResponse(200, "Payment found", typeof(PaymentResource))]
     [SwaggerResponse(404, "Payment not found")]
+    [SwaggerResponse(401, "Unauthorized")]
+    [SwaggerResponse(403, "Forbidden")]
     public async Task<IActionResult> GetPaymentById(int id)
     {
         var result = await queryService.Handle(new GetPaymentByIdQuery(id));
@@ -33,10 +39,13 @@ public class PaymentsController(
     }
 
     [HttpPost]
+    [Authorize(Roles = "Homeowner,Remodeler")]
     [SwaggerOperation(Summary = "Creates a payment", OperationId = "CreatePayment")]
     [SwaggerResponse(201, "Payment created", typeof(PaymentResource))]
     [SwaggerResponse(400, "Invalid request")]
     [SwaggerResponse(409, "Payment with this reference already exists")]
+    [SwaggerResponse(401, "Unauthorized")]
+    [SwaggerResponse(403, "Forbidden")]
     public async Task<IActionResult> CreatePayment([FromBody] CreatePaymentResource resource)
     {
         if (!ModelState.IsValid) return BadRequest(ModelState);
@@ -65,9 +74,12 @@ public class PaymentsController(
     }
 
     [HttpPost("{id:int}/initiate")]
+    [Authorize(Roles = "Homeowner,Remodeler")]
     [SwaggerOperation(Summary = "Initiates a payment", OperationId = "InitiatePayment")]
     [SwaggerResponse(200, "Payment initiated", typeof(PaymentResource))]
     [SwaggerResponse(400, "Invalid request")]
+    [SwaggerResponse(401, "Unauthorized")]
+    [SwaggerResponse(403, "Forbidden")]
     public async Task<IActionResult> InitiatePayment(int id)
     {
         var result = await commandService.Handle(new InitiatePaymentCommand(id));
@@ -76,9 +88,12 @@ public class PaymentsController(
     }
 
     [HttpPost("{id:int}/confirm")]
+    [Authorize(Roles = "Homeowner,Remodeler")]
     [SwaggerOperation(Summary = "Confirms a payment", OperationId = "ConfirmPayment")]
     [SwaggerResponse(200, "Payment confirmed", typeof(PaymentResource))]
     [SwaggerResponse(400, "Invalid request")]
+    [SwaggerResponse(401, "Unauthorized")]
+    [SwaggerResponse(403, "Forbidden")]
     public async Task<IActionResult> ConfirmPayment(int id)
     {
         var result = await commandService.Handle(new ConfirmPaymentCommand(id));
@@ -87,9 +102,12 @@ public class PaymentsController(
     }
 
     [HttpPost("{id:int}/cancel")]
+    [Authorize(Roles = "Homeowner,Remodeler")]
     [SwaggerOperation(Summary = "Cancels a payment", OperationId = "CancelPayment")]
     [SwaggerResponse(200, "Payment cancelled", typeof(PaymentResource))]
     [SwaggerResponse(400, "Invalid request")]
+    [SwaggerResponse(401, "Unauthorized")]
+    [SwaggerResponse(403, "Forbidden")]
     public async Task<IActionResult> CancelPayment(int id)
     {
         var result = await commandService.Handle(new CancelPaymentCommand(id));
@@ -98,9 +116,12 @@ public class PaymentsController(
     }
 
     [HttpPost("{id:int}/refund")]
+    [Authorize(Roles = "Homeowner,Remodeler")]
     [SwaggerOperation(Summary = "Refunds a payment", OperationId = "RefundPayment")]
     [SwaggerResponse(200, "Payment refunded", typeof(PaymentResource))]
     [SwaggerResponse(400, "Invalid request")]
+    [SwaggerResponse(401, "Unauthorized")]
+    [SwaggerResponse(403, "Forbidden")]
     public async Task<IActionResult> RefundPayment(int id)
     {
         var result = await commandService.Handle(new RefundPaymentCommand(id));
@@ -109,12 +130,15 @@ public class PaymentsController(
     }
 
     [HttpGet]
+    [Authorize(Roles = "Homeowner,Remodeler")]
     [SwaggerOperation(
         Summary = "Gets payments by query",
         Description = "Filter by userId, status or reference",
         OperationId = "GetPaymentsFromQuery")]
     [SwaggerResponse(200, "Payment(s) found", typeof(IEnumerable<PaymentResource>))]
     [SwaggerResponse(400, "Invalid request")]
+    [SwaggerResponse(401, "Unauthorized")]
+    [SwaggerResponse(403, "Forbidden")]
     public async Task<IActionResult> GetPaymentsFromQuery(
         [FromQuery] int? userId,
         [FromQuery] PaymentStatus? status,

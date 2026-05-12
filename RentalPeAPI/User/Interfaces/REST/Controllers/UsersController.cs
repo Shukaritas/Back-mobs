@@ -1,4 +1,6 @@
-﻿using MediatR; 
+﻿using System.Security.Claims;
+using MediatR; 
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using RentalPeAPI.User.Application.Internal.CommandServices;
 using RentalPeAPI.User.Application.Internal.QueryServices;
@@ -17,7 +19,12 @@ public class UsersController : ControllerBase
         _mediator = mediator;
     }
 
+    /// <summary>
+    /// POST: Registra un nuevo usuario (Homeowner o Remodeler).
+    /// Endpoint público - No requiere autenticación.
+    /// </summary>
     [HttpPost("register")]
+    [AllowAnonymous] // ← Explícitamente permitido sin autenticación
     public async Task<ActionResult<UserDto>> RegisterUser([FromBody] RegisterUserResource resource)
     {
         var command = new RegisterUserCommand(
@@ -35,7 +42,13 @@ public class UsersController : ControllerBase
         return CreatedAtAction(nameof(GetUserById), new { userId = userDto.Id }, userDto);
     }
 
+    /// <summary>
+    /// POST: Login de usuario existente.
+    /// Endpoint público - No requiere autenticación.
+    /// Retorna token JWT si las credenciales son válidas.
+    /// </summary>
     [HttpPost("login")]
+    [AllowAnonymous] // ← Explícitamente permitido sin autenticación
     public async Task<IActionResult> Login([FromBody] LoginResource resource)
     {
         try
@@ -51,9 +64,23 @@ public class UsersController : ControllerBase
         }
     }
     
-    [HttpGet("{userId:guid}")] 
+    /// <summary>
+    /// GET: Obtiene información de un usuario específico.
+    /// Solo accesible para usuarios autenticados (ambos roles).
+    /// </summary>
+    [HttpGet("{userId:guid}")]
+    [Authorize(Roles = "Homeowner,Remodeler")] // ← Protegido ahora
     public async Task<ActionResult<UserDto>> GetUserById(Guid userId)
     {
+        // Validar que el usuario autenticado espé solicitando su propia información
+        var userIdClaim = User.FindFirstValue(System.Security.Claims.ClaimTypes.NameIdentifier);
+        if (string.IsNullOrEmpty(userIdClaim) || !Guid.TryParse(userIdClaim, out var authenticatedUserId))
+            return Unauthorized(new { error = "Token JWT inválido o sin NameIdentifier." });
+
+        // Permitir que un usuario solo vea su propia información (o admin en el futuro)
+        if (authenticatedUserId != userId)
+            return Forbid("No tienes permiso para acceder a la información de otro usuario.");
+
         var query = new GetUserByIdQuery(userId);
         var userDto = await _mediator.Send(query);
 
@@ -62,9 +89,23 @@ public class UsersController : ControllerBase
         return Ok(userDto);
     }
     
+    /// <summary>
+    /// POST: Añade un método de pago a un usuario específico.
+    /// Solo accesible para usuarios autenticados (ambos roles).
+    /// </summary>
     [HttpPost("{userId:guid}/payment-methods")]
+    [Authorize(Roles = "Homeowner,Remodeler")] // ← Protegido ahora
     public async Task<ActionResult<UserDto>> AddPaymentMethod(Guid userId, [FromBody] AddPaymentMethodResource resource)
     {
+        // Validar que el usuario autenticado esté añadiendo métodos de pago a su cuenta
+        var userIdClaim = User.FindFirstValue(System.Security.Claims.ClaimTypes.NameIdentifier);
+        if (string.IsNullOrEmpty(userIdClaim) || !Guid.TryParse(userIdClaim, out var authenticatedUserId))
+            return Unauthorized(new { error = "Token JWT inválido o sin NameIdentifier." });
+
+        // Permitir que un usuario solo añada métodos a su propia cuenta
+        if (authenticatedUserId != userId)
+            return Forbid("No tienes permiso para modificar la información de otro usuario.");
+
         var command = new AddPaymentMethodCommand(
             userId,
             resource.Type,

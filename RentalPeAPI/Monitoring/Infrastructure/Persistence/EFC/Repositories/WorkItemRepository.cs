@@ -34,4 +34,13 @@ public class WorkItemRepository : IWorkItemRepository
             .Where(t => t.SpaceId == spaceId)
             .ToListAsync();
     }
+
+    public async Task DeleteAsync(int id)
+    {
+        var workItem = await _context.Tasks.FindAsync(id);
+        if (workItem != null)
+        {
+            _context.Tasks.Remove(workItem);
+        }
+    }
 }

@@ -78,14 +78,16 @@ public class MonitoringContextFacade : IMonitoringContextFacade
          Guid createdByUserId,
          string title,
          string description,
-         DateTime plannedStartDate,
-         DateTime plannedEndDate)
+         string? photoUrl = null,
+         DateTime? plannedStartDate = null,
+         DateTime? plannedEndDate = null)
      {
          var command = new CreateWorkItemCommand(
              SpaceId: spaceId,
              CreatedByUserId: createdByUserId,
              Title: title,
              Description: description,
+             PhotoUrl: photoUrl,
              PlannedStartDate: plannedStartDate,
              PlannedEndDate: plannedEndDate
          );

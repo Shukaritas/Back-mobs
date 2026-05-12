@@ -18,29 +18,34 @@ public class TokenGenerationService : ITokenGenerationService
 
     public string GenerateToken(Domain.User user)
     {
-   
+        // Validación defensiva: garantizar que el rol sea exactamente "Homeowner" o "Remodeler"
+        var validRoles = new[] { "Homeowner", "Remodeler" };
+        if (!validRoles.Contains(user.Role, StringComparer.OrdinalIgnoreCase))
+        {
+            throw new UnauthorizedAccessException(
+                $"Usuario con rol '{user.Role}' no autorizado. Solo se permiten roles: {string.Join(", ", validRoles)}");
+        }
+
         var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_configuration["JwtSettings:Secret"]!));
         var credentials = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
 
-      
+        // Claims estándar con el rol usando ClaimTypes.Role (constante nativa)
         var claims = new[]
         {
-            new Claim(JwtRegisteredClaimNames.Sub, user.Id.ToString()), 
+            new Claim(ClaimTypes.NameIdentifier, user.Id.ToString()),
             new Claim(JwtRegisteredClaimNames.Email, user.Email),
             new Claim(JwtRegisteredClaimNames.Name, user.FullName),
-            new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString()) 
-         
+            new Claim(ClaimTypes.Role, user.Role), // ← USO EXCLUSIVO DE ClaimTypes.Role
+            new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString())
         };
 
-       
         var token = new JwtSecurityToken(
             issuer: _configuration["JwtSettings:Issuer"],
             audience: _configuration["JwtSettings:Audience"],
             claims: claims,
-            expires: DateTime.UtcNow.AddHours(8), 
+            expires: DateTime.UtcNow.AddHours(8),
             signingCredentials: credentials);
 
-     
         return new JwtSecurityTokenHandler().WriteToken(token);
     }
 }

@@ -42,13 +42,18 @@ public class WorkItemConfiguration : IEntityTypeConfiguration<WorkItem>
             .HasMaxLength(500)
             .IsRequired();
 
+        builder.Property(t => t.PhotoUrl)
+            .HasColumnName("photo_url")
+            .HasMaxLength(2048)
+            .IsRequired(false); // Nullable
+
         builder.Property(t => t.PlannedStartDate)
             .HasColumnName("planned_start_date")
-            .IsRequired();
+            .IsRequired(false); // Nullable
 
         builder.Property(t => t.PlannedEndDate)
             .HasColumnName("planned_end_date")
-            .IsRequired();
+            .IsRequired(false); // Nullable
 
         // Estado y auditoría
         builder.Property(t => t.Status)

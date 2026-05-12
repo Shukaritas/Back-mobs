@@ -1,7 +1,9 @@
 ﻿using System;
 using System.Linq;
+using System.Security.Claims;
 using System.Threading.Tasks;
 using MediatR;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using RentalPeAPI.Monitoring.Application.Internal.CommandServices;
 using RentalPeAPI.Monitoring.Application.Internal.QueryServices;
@@ -14,6 +16,7 @@ namespace RentalPeAPI.Monitoring.Interfaces.REST.Controllers;
 /// </summary>
 [ApiController]
 [Route("api/v1/monitoring/[controller]")]
+[Authorize] // ← CRÍTICO: Requiere autenticación JWT
 public class IoTDevicesController : ControllerBase
 {
     private readonly IMediator _mediator;
@@ -25,10 +28,17 @@ public class IoTDevicesController : ControllerBase
 
     /// <summary>
     /// Crea un nuevo dispositivo IoT para un espacio específico.
+    /// Solo accesible para usuarios autenticados (ambos roles).
     /// </summary>
     [HttpPost]
+    [Authorize(Roles = "Homeowner,Remodeler")]
     public async Task<IActionResult> CreateDevice([FromBody] CreateIoTDeviceResource resource)
     {
+        // Validar que el usuario autenticado tenga un NameIdentifier válido
+        var userIdClaim = User.FindFirstValue(System.Security.Claims.ClaimTypes.NameIdentifier);
+        if (string.IsNullOrEmpty(userIdClaim))
+            return Unauthorized(new { error = "Token JWT inválido o sin NameIdentifier." });
+
         var command = new CreateIoTDeviceCommand(
             resource.SpaceId,
             resource.Type,
@@ -55,10 +65,17 @@ public class IoTDevicesController : ControllerBase
 
     /// <summary>
     /// Lista todos los dispositivos IoT de un espacio específico.
+    /// Solo accesible para usuarios autenticados (ambos roles).
     /// </summary>
     [HttpGet("space/{spaceId:long}")]
+    [Authorize(Roles = "Homeowner,Remodeler")]
     public async Task<IActionResult> ListDevicesBySpace(long spaceId)
     {
+        // Validar que el usuario autenticado tenga un NameIdentifier válido
+        var userIdClaim = User.FindFirstValue(System.Security.Claims.ClaimTypes.NameIdentifier);
+        if (string.IsNullOrEmpty(userIdClaim))
+            return Unauthorized(new { error = "Token JWT inválido o sin NameIdentifier." });
+
         var query = new ListIoTDevicesBySpaceQuery(spaceId);
         var devices = await _mediator.Send(query);
 

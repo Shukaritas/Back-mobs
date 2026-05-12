@@ -14,8 +14,9 @@ public record WorkItemResource(
     [property: JsonPropertyName("createdByUserId")] Guid CreatedByUserId,
     [property: JsonPropertyName("title")] string Title,
     [property: JsonPropertyName("description")] string Description,
-    [property: JsonPropertyName("plannedStartDate")] DateTime PlannedStartDate,
-    [property: JsonPropertyName("plannedEndDate")] DateTime PlannedEndDate,
+    [property: JsonPropertyName("photoUrl")] string? PhotoUrl,
+    [property: JsonPropertyName("plannedStartDate")] DateTime? PlannedStartDate,
+    [property: JsonPropertyName("plannedEndDate")] DateTime? PlannedEndDate,
     [property: JsonPropertyName("status")] string Status,
     [property: JsonPropertyName("createdAt")] DateTime CreatedAt,
     [property: JsonPropertyName("completedAt")] DateTime? CompletedAt

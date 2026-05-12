@@ -64,15 +64,25 @@ public class SpaceAppService
         return ToDto(space);
     }
 
-    public async Task<SpaceDto?> AcceptOfferAsync(long spaceId, Guid remodelerId)
+    public async Task<SpaceDto?> AcceptProjectAsync(AcceptSpaceCommand command)
     {
-        var space = await _spaceRepository.FindByIdAsync(spaceId);
+        var space = await _spaceRepository.FindByIdAsync(command.SpaceId);
         if (space == null) return null;
 
-        space.AcceptOffer(remodelerId);
+        space.AcceptProject(command.RemodelerId);
         await _unitOfWork.CompleteAsync();
 
         return ToDto(space);
+    }
+
+    /// <summary>
+    /// Método heredado para compatibilidad. Usa AcceptProjectAsync internamente.
+    /// </summary>
+    [Obsolete("Use AcceptProjectAsync instead.")]
+    public async Task<SpaceDto?> AcceptOfferAsync(long spaceId, Guid remodelerId)
+    {
+        var command = new AcceptSpaceCommand(spaceId, remodelerId);
+        return await AcceptProjectAsync(command);
     }
 
     public async Task<bool> DeleteSpaceAsync(DeleteSpaceCommand command)

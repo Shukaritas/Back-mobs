@@ -40,6 +40,7 @@ public interface IMonitoringContextFacade
         Guid createdByUserId,
         string title,
         string description,
-        DateTime plannedStartDate,
-        DateTime plannedEndDate);
+        string? photoUrl = null,
+        DateTime? plannedStartDate = null,
+        DateTime? plannedEndDate = null);
 }

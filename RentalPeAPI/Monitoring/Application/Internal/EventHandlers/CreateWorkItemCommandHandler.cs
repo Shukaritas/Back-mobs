@@ -1,12 +1,14 @@
-﻿// Monitoring/Application/Internal/CommandServices/CreateWorkItemCommandHandler.cs
-using System.Threading;
-using System.Threading.Tasks;
+﻿// Monitoring/Application/Internal/EventHandlers/CreateWorkItemCommandHandler.cs
 using MediatR;
 using RentalPeAPI.Monitoring.Domain.Entities;
 using RentalPeAPI.Monitoring.Domain.Repositories;
+using RentalPeAPI.Monitoring.Application.Internal.CommandServices;
 using RentalPeAPI.Shared.Domain.Repositories;
+using System;
+using System.Threading;
+using System.Threading.Tasks;
 
-namespace RentalPeAPI.Monitoring.Application.Internal.CommandServices;
+namespace RentalPeAPI.Monitoring.Application.Internal.EventHandlers;
 
 /// <summary>
 /// Manejador del comando CreateWorkItemCommand.
@@ -33,6 +35,7 @@ public class CreateWorkItemCommandHandler : IRequestHandler<CreateWorkItemComman
             command.CreatedByUserId,
             command.Title,
             command.Description,
+            command.PhotoUrl,
             command.PlannedStartDate,
             command.PlannedEndDate
         );
