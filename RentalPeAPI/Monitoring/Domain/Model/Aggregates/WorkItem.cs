@@ -31,14 +31,14 @@ public class WorkItem
     // Estado y auditoría
     public string Status { get; set; } = "PENDING";
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
-    public DateTime? CompletedAt { get; set; }
+    public DateTime? CompletedAt { get; private set; }
 
 
     public WorkItem() { }
 
     /// <summary>
     /// Constructor principal para crear una nueva tarea según reglas de DDD.
-    /// El estado inicial siempre es "PENDING" al crear.
+    /// Si initialStatus tiene un valor, se asigna; de lo contrario, por defecto es "PENDING".
     /// </summary>
     public WorkItem(
         long spaceId,
@@ -47,7 +47,8 @@ public class WorkItem
         string description,
         string? photoUrl = null,
         DateTime? plannedStartDate = null,
-        DateTime? plannedEndDate = null)
+        DateTime? plannedEndDate = null,
+        string? initialStatus = null)
     {
         if (spaceId <= 0)
             throw new ArgumentException("Space ID is required.", nameof(spaceId));
@@ -74,7 +75,7 @@ public class WorkItem
         PhotoUrl = photoUrl;
         PlannedStartDate = plannedStartDate;
         PlannedEndDate = plannedEndDate;
-        Status = "PENDING";
+        Status = !string.IsNullOrWhiteSpace(initialStatus) ? initialStatus.ToUpper() : "PENDING";
         CreatedAt = DateTime.UtcNow;
         CompletedAt = null;
     }
@@ -121,6 +122,7 @@ public class WorkItem
     /// <summary>
     /// Método de dominio para actualizar el estado y fechas de la tarea.
     /// Si el estado es "COMPLETED", asigna automáticamente CompletedAt = DateTime.UtcNow.
+    /// Si el estado es distinto de "COMPLETED", limpia CompletedAt.
     /// Solo disponible para el remodelador asignado al espacio.
     /// </summary>
     public void UpdateProgress(string status, DateTime? startDate, DateTime? endDate)
@@ -143,10 +145,13 @@ public class WorkItem
         PlannedStartDate = startDate;
         PlannedEndDate = endDate;
 
-        // Si el estado es COMPLETED, asignar automáticamente la fecha de finalización
-        if (Status == "COMPLETED" && !CompletedAt.HasValue)
+        if (Status == "COMPLETED")
         {
             CompletedAt = DateTime.UtcNow;
+        }
+        else
+        {
+            CompletedAt = null;
         }
     }
 
@@ -161,9 +166,13 @@ public class WorkItem
 
         Status = newStatus.ToUpper();
 
-        if (Status == "COMPLETED" && !CompletedAt.HasValue)
+        if (Status == "COMPLETED")
         {
             CompletedAt = DateTime.UtcNow;
+        }
+        else
+        {
+            CompletedAt = null;
         }
     }
 

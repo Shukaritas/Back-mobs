@@ -15,18 +15,21 @@ using RentalPeAPI.Shared.Domain.Repositories;
 namespace RentalPeAPI.Monitoring.Interfaces.REST.Controllers;
 
 /// <summary>
-/// Controlador para la gestión de tareas (WorkItems) vinculadas a espacios (Spaces).
-/// Implementa operaciones CRUD con autenticación JWT y autorización por roles.
+/// Controlador para la gestión de tareas (WorkItems/Tasks) vinculadas a espacios (Spaces).
+/// Implementa una API basada en intención con endpoints separados por rol.
 /// 
-/// Reglas de Negocio:
-/// - POST: Extrae UserId del JWT. Si Homeowner: Status="PENDING" e ignora fechas. Si Remodeler: permite Status y fechas.
-/// - PUT: Si es creador: editar contenido (título, descripción, foto). Si es Remodeler+RemodelerId: actualizar estado.
-/// - DELETE: Solo el creador exacto puede eliminar.
+/// Arquitectura DDD con Endpoints Intent-Driven:
+/// - POST /request: Homeowner crea solicitud de tarea (Status="PENDING")
+/// - POST /plan: Remodeler crea plan de tarea (con Status, fechas)
+/// - PUT /{id}/content: Creador edita contenido (título, descripción, foto)
+/// - PUT /{id}/progress: Remodeler actualiza progreso (estado, fechas)
+/// - DELETE /{id}: Solo creador puede eliminar
+/// - GET /{id}: Obtener detalles de la tarea
 /// </summary>
 [ApiController]
 [Route("api/v1/monitoring/tasks")] // -> /api/v1/monitoring/tasks
 [Tags("Tasks")]
-[Authorize] // Requiere JWT válido en todos los endpoints
+[Authorize] // Requiere JWT válido en todos los endpoints (excepto datos públicos)
 public class WorkItemController : ControllerBase
 {
     private readonly IMediator _mediator;
@@ -47,63 +50,72 @@ public class WorkItemController : ControllerBase
     }
 
     /// <summary>
-    /// Crea una nueva orden de trabajo (work item) vinculada a un espacio específico.
-    /// 
-    /// Reglas de negocio:
-    /// - Si el usuario es "Homeowner": Status se fuerza a "PENDING" e ignora fechas planificadas del payload.
-    /// - Si el usuario es "Remodeler": permite que el comando guarde el Status y fechas enviadas.
-    /// 
-    /// El creador se extrae automáticamente del token JWT (ClaimTypes.NameIdentifier).
-    /// Devuelve 201 Created con el WorkItemResource completo (incluyendo ID autogenerado y CreatedAt).
+    /// Extrae el ID del usuario del token JWT.
+    /// Devuelve Guid.Empty si el token es inválido.
     /// </summary>
-    /// <param name="resource">DTO con spaceId, title, description, photoUrl, planned dates</param>
+    private Guid ExtractUserIdFromToken()
+    {
+        var userIdClaim = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        if (string.IsNullOrEmpty(userIdClaim) || !Guid.TryParse(userIdClaim, out var userId))
+            return Guid.Empty;
+        return userId;
+    }
+
+    /// <summary>
+    /// Obtiene el rol del usuario del token JWT.
+    /// Devuelve null si no hay rol.
+    /// </summary>
+    private string? GetUserRoleFromToken()
+    {
+        return User.FindFirstValue(ClaimTypes.Role);
+    }
+
+    /// <summary>
+    /// [INTENT-DRIVEN] Crea una solicitud de tarea (Homeowner).
+    /// 
+    /// Reglas de Negocio Estrictas:
+    /// - Solo usuarios con rol "Homeowner" pueden contactar este endpoint
+    /// - Status se fuerza automáticamente a "PENDING"
+    /// - Las fechas planificadas se ignoran (siempre null)
+    /// - El CreatedByUserId se extrae del JWT y NO puede ser sobrescrito por el cliente
+    /// 
+    /// Devuelve 201 Created con el WorkItemResource completo.
+    /// </summary>
+    /// <param name="resource">DTO CreateTaskRequestResource con spaceId, title, description, photoUrl</param>
     /// <returns>201 Created con WorkItemResource completo</returns>
     /// <response code="201">Tarea creada exitosamente</response>
     /// <response code="400">Validación fallida o datos inválidos</response>
-    /// <response code="401">Token JWT inválido o ausente</response>
-    [HttpPost]
+    /// <response code="401">Token JWT inválido, ausente o usuario no autenticado</response>
+    /// <response code="403">Usuario no tiene rol "Homeowner"</response>
+    [HttpPost("request")]
+    [Authorize(Roles = "Homeowner")]
     [ProducesResponseType(201)]
     [ProducesResponseType(400)]
     [ProducesResponseType(401)]
-    public async Task<IActionResult> CreateWorkItem([FromBody] CreateWorkItemResource resource)
+    [ProducesResponseType(403)]
+    public async Task<IActionResult> CreateTaskRequest([FromBody] CreateTaskRequestResource resource)
     {
         if (!ModelState.IsValid)
             return BadRequest(ModelState);
 
         // Extraer el ID del usuario desde el token JWT
-        var userIdClaim = User.FindFirstValue(ClaimTypes.NameIdentifier);
-        if (string.IsNullOrEmpty(userIdClaim) || !Guid.TryParse(userIdClaim, out var createdByUserId))
+        var createdByUserId = ExtractUserIdFromToken();
+        if (createdByUserId == Guid.Empty)
             return Unauthorized(new { error = "Token JWT inválido o sin NameIdentifier." });
-
-        // Extraer el rol del usuario
-        var roleClaim = User.FindFirstValue(ClaimTypes.Role);
-        var isHomeowner = string.Equals(roleClaim, "Homeowner", StringComparison.OrdinalIgnoreCase);
-        var isRemodeler = string.Equals(roleClaim, "Remodeler", StringComparison.OrdinalIgnoreCase);
-
-        // Aplicar reglas de negocio según rol
-        DateTime? finalStartDate = resource.PlannedStartDate;
-        DateTime? finalEndDate = resource.PlannedEndDate;
-
-        if (isHomeowner)
-        {
-            // Homeowner: ignorar fechas planificadas del payload
-            finalStartDate = null;
-            finalEndDate = null;
-        }
-
-        var command = new CreateWorkItemCommand(
-            resource.SpaceId,
-            createdByUserId,
-            resource.Title,
-            resource.Description,
-            resource.PhotoUrl,
-            finalStartDate,
-            finalEndDate
-        );
 
         try
         {
-            // Ejecutar el comando y obtener el ID
+            // Crear comando con FUERZA Status="PENDING" y fechas=null
+            var command = new CreateWorkItemCommand(
+                resource.SpaceId,
+                createdByUserId,
+                resource.Title,
+                resource.Description,
+                resource.PhotoUrl,
+                null,
+                null
+            );
+
             var taskId = await _mediator.Send(command);
 
             // Recuperar la entidad completa creada
@@ -111,7 +123,6 @@ public class WorkItemController : ControllerBase
             if (createdWorkItem == null)
                 throw new KeyNotFoundException($"WorkItem recién creado con ID {taskId} no encontrado.");
 
-            // Mapear a WorkItemResource
             var workItemResource = new WorkItemResource(
                 createdWorkItem.Id,
                 createdWorkItem.SpaceId,
@@ -126,7 +137,6 @@ public class WorkItemController : ControllerBase
                 createdWorkItem.CompletedAt
             );
 
-            // Devolver CreatedAtAction con el recurso completo
             return CreatedAtAction(
                 nameof(GetWorkItemById),
                 new { id = taskId },
@@ -139,7 +149,90 @@ public class WorkItemController : ControllerBase
         }
         catch (Exception ex)
         {
-            return BadRequest(new { error = $"Error al crear la tarea: {ex.Message}" });
+            return BadRequest(new { error = $"Error al crear la solicitud de tarea: {ex.Message}" });
+        }
+    }
+
+    /// <summary>
+    /// [INTENT-DRIVEN] Crea un plan de tarea (Remodeler).
+    /// 
+    /// Reglas de Negocio Estrictas:
+    /// - Solo usuarios con rol "Remodeler" pueden contactar este endpoint
+    /// - Permite especificar Status, PlannedStartDate y PlannedEndDate
+    /// - El CreatedByUserId se extrae del JWT y NO puede ser sobrescrito por el cliente
+    /// - Las fechas se validan en el agregado de dominio (start < end)
+    /// 
+    /// Devuelve 201 Created con el WorkItemResource completo.
+    /// </summary>
+    /// <param name="resource">DTO CreateTaskPlanResource con spaceId, title, description, photoUrl, status, fechas</param>
+    /// <returns>201 Created con WorkItemResource completo</returns>
+    /// <response code="201">Plan de tarea creado exitosamente</response>
+    /// <response code="400">Validación fallida, datos inválidos o fechas inconsistentes</response>
+    /// <response code="401">Token JWT inválido, ausente o usuario no autenticado</response>
+    /// <response code="403">Usuario no tiene rol "Remodeler"</response>
+    [HttpPost("plan")]
+    [Authorize(Roles = "Remodeler")]
+    [ProducesResponseType(201)]
+    [ProducesResponseType(400)]
+    [ProducesResponseType(401)]
+    [ProducesResponseType(403)]
+    public async Task<IActionResult> CreateTaskPlan([FromBody] CreateTaskPlanResource resource)
+    {
+        if (!ModelState.IsValid)
+            return BadRequest(ModelState);
+
+        // Extraer el ID del usuario desde el token JWT
+        var createdByUserId = ExtractUserIdFromToken();
+        if (createdByUserId == Guid.Empty)
+            return Unauthorized(new { error = "Token JWT inválido o sin NameIdentifier." });
+
+        try
+        {
+            // Crear comando permitiendo Status y fechas del payload
+            var command = new CreateWorkItemCommand(
+                resource.SpaceId,
+                createdByUserId,
+                resource.Title,
+                resource.Description,
+                resource.PhotoUrl,
+                resource.PlannedStartDate,
+                resource.PlannedEndDate
+            );
+
+            var taskId = await _mediator.Send(command);
+
+            // Recuperar la entidad completa creada
+            var createdWorkItem = await _workItemRepository.FindByIdAsync(taskId);
+            if (createdWorkItem == null)
+                throw new KeyNotFoundException($"WorkItem recién creado con ID {taskId} no encontrado.");
+
+            var workItemResource = new WorkItemResource(
+                createdWorkItem.Id,
+                createdWorkItem.SpaceId,
+                createdWorkItem.CreatedByUserId,
+                createdWorkItem.Title,
+                createdWorkItem.Description,
+                createdWorkItem.PhotoUrl,
+                createdWorkItem.PlannedStartDate,
+                createdWorkItem.PlannedEndDate,
+                createdWorkItem.Status,
+                createdWorkItem.CreatedAt,
+                createdWorkItem.CompletedAt
+            );
+
+            return CreatedAtAction(
+                nameof(GetWorkItemById),
+                new { id = taskId },
+                workItemResource
+            );
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(new { error = ex.Message });
+        }
+        catch (Exception ex)
+        {
+            return BadRequest(new { error = $"Error al crear el plan de tarea: {ex.Message}" });
         }
     }
 
@@ -175,49 +268,39 @@ public class WorkItemController : ControllerBase
     }
 
     /// <summary>
-    /// Actualiza una tarea existente con autorización granular por rol.
+    /// [INTENT-DRIVEN] Actualiza el contenido (texto y foto) de una tarea.
     /// 
     /// Reglas de Autorización ESTRICTAS:
-    /// 1. Si el usuario es el CREADOR (tokenUserId == CreatedByUserId):
-    ///    - SOLO puede editar: Title, Description, PhotoUrl
-    ///    - Status, PlannedStartDate, PlannedEndDate son IGNORADOS
+    /// - Solo el CREADOR EXACTO (User ID == CreatedByUserId) puede usar este endpoint
+    /// - SOLO permite editar: Title, Description, PhotoUrl
+    /// - Fields: Status, PlannedStartDate, PlannedEndDate son IGNORADOS si se envían
+    /// - Si no es el creador: 403 Forbid
     /// 
-    /// 2. Si el usuario es "Remodeler" Y es el RemodelerId del Space:
-    ///    - Puede editar: Status, PlannedStartDate, PlannedEndDate
-    ///    - Title, Description, PhotoUrl son IGNORADOS
-    /// 
-    /// 3. Si el usuario NO cumple ninguno: 403 Forbid
-    /// 
-    /// El usuario que realiza la acción se extrae del token JWT.
+    /// El usuario se extrae del token JWT.
     /// </summary>
     /// <param name="id">ID de la tarea a actualizar</param>
-    /// <param name="resource">Datos a actualizar (todos los campos opcionales)</param>
+    /// <param name="resource">DTO UpdateTaskContentResource con title, description, photoUrl</param>
     /// <returns>200 OK con mensaje de confirmación</returns>
-    /// <response code="200">Tarea actualizada exitosamente</response>
-    /// <response code="400">Validación fallida o tarea/espacio no encontrados</response>
+    /// <response code="200">Contenido de la tarea actualizado exitosamente</response>
+    /// <response code="400">Validación fallida o contenido inválido</response>
     /// <response code="401">Token JWT inválido o ausente</response>
-    /// <response code="403">Usuario no tiene permisos para actualizar esta tarea</response>
+    /// <response code="403">Usuario no es el creador de la tarea</response>
     /// <response code="404">Tarea no encontrada</response>
-    [HttpPut("{id:int}")]
+    [HttpPut("{id:int}/content")]
     [ProducesResponseType(200)]
     [ProducesResponseType(400)]
     [ProducesResponseType(401)]
     [ProducesResponseType(403)]
     [ProducesResponseType(404)]
-    public async Task<IActionResult> UpdateWorkItem(int id, [FromBody] UpdateWorkItemResource resource)
+    public async Task<IActionResult> UpdateTaskContent(int id, [FromBody] UpdateTaskContentResource resource)
     {
         if (!ModelState.IsValid)
             return BadRequest(ModelState);
 
         // Extraer el ID del usuario desde el token JWT
-        var userIdClaim = User.FindFirstValue(ClaimTypes.NameIdentifier);
-        if (string.IsNullOrEmpty(userIdClaim) || !Guid.TryParse(userIdClaim, out var requestingUserId))
+        var requestingUserId = ExtractUserIdFromToken();
+        if (requestingUserId == Guid.Empty)
             return Unauthorized(new { error = "Token JWT inválido o sin NameIdentifier." });
-
-        // Extraer el rol del usuario
-        var roleClaim = User.FindFirstValue(ClaimTypes.Role);
-        var isHomeowner = string.Equals(roleClaim, "Homeowner", StringComparison.OrdinalIgnoreCase);
-        var isRemodeler = string.Equals(roleClaim, "Remodeler", StringComparison.OrdinalIgnoreCase);
 
         try
         {
@@ -226,81 +309,23 @@ public class WorkItemController : ControllerBase
             if (workItem == null)
                 return NotFound(new { error = $"WorkItem con ID {id} no encontrado." });
 
-            // Obtener el espacio para validaciones de remodelador
-            var space = await _spaceRepository.FindByIdAsync(workItem.SpaceId);
-            if (space == null)
-                return NotFound(new { error = $"Space con ID {workItem.SpaceId} no encontrado." });
-
-            // Determinar permisos del usuario
-            bool isCreator = workItem.CreatedByUserId == requestingUserId;
-            bool isRemodellerOfSpace = isRemodeler && space.RemodelerId == requestingUserId;
-
-            // Si NO es creador ni remodelador del espacio → 403 Forbid
-            if (!isCreator && !isRemodellerOfSpace)
+            // Validar que el usuario sea el CREADOR EXACTO
+            if (workItem.CreatedByUserId != requestingUserId)
                 return Forbid();
 
+            // Aplicar cambios solo a contenido descriptivo
             bool hasEdited = false;
 
-            // ============== LÓGICA POR ROL ==============
-            
-            // CASO 1: Si es el CREADOR (Homeowner o Remodeler que creó la tarea)
-            if (isCreator)
+            if (!string.IsNullOrWhiteSpace(resource.Title) ||
+                !string.IsNullOrWhiteSpace(resource.Description) ||
+                resource.PhotoUrl != null)
             {
-                // Homeowner solo puede editar contenido descriptivo
-                if (isHomeowner || !isRemodeler) // Creador que es Homeowner
-                {
-                    // SOLO permitir cambios a: Title, Description, PhotoUrl
-                    if (!string.IsNullOrWhiteSpace(resource.Title) ||
-                        !string.IsNullOrWhiteSpace(resource.Description) ||
-                        resource.PhotoUrl != null)
-                    {
-                        string finalTitle = !string.IsNullOrWhiteSpace(resource.Title) ? resource.Title : workItem.Title;
-                        string finalDescription = !string.IsNullOrWhiteSpace(resource.Description) ? resource.Description : workItem.Description;
-                        string? finalPhotoUrl = resource.PhotoUrl ?? workItem.PhotoUrl;
+                string finalTitle = !string.IsNullOrWhiteSpace(resource.Title) ? resource.Title : workItem.Title;
+                string finalDescription = !string.IsNullOrWhiteSpace(resource.Description) ? resource.Description : workItem.Description;
+                string? finalPhotoUrl = resource.PhotoUrl ?? workItem.PhotoUrl;
 
-                        workItem.EditContent(finalTitle, finalDescription, finalPhotoUrl);
-                        hasEdited = true;
-                    }
-
-                    // RECHAZAR intentos de cambiar Status o fechas (solo ignorar para Homeowner)
-                    if (isHomeowner && (!string.IsNullOrWhiteSpace(resource.Status) ||
-                        resource.PlannedStartDate.HasValue ||
-                        resource.PlannedEndDate.HasValue))
-                    {
-                        return BadRequest(new 
-                        { 
-                            error = "Como Homeowner, no tienes permiso para cambiar Status o fechas planificadas. Solo puedes editar título, descripción y foto." 
-                        });
-                    }
-                }
-            }
-
-            // CASO 2: Si es Remodeler asignado al espacio (NO es el creador)
-            if (isRemodellerOfSpace && !isCreator)
-            {
-                // SOLO permitir cambios a: Status, PlannedStartDate, PlannedEndDate
-                if (!string.IsNullOrWhiteSpace(resource.Status) ||
-                    resource.PlannedStartDate.HasValue ||
-                    resource.PlannedEndDate.HasValue)
-                {
-                    string finalStatus = !string.IsNullOrWhiteSpace(resource.Status) ? resource.Status : workItem.Status;
-                    DateTime? finalStartDate = resource.PlannedStartDate ?? workItem.PlannedStartDate;
-                    DateTime? finalEndDate = resource.PlannedEndDate ?? workItem.PlannedEndDate;
-
-                    workItem.UpdateProgress(finalStatus, finalStartDate, finalEndDate);
-                    hasEdited = true;
-                }
-
-                // RECHAZAR intentos de cambiar contenido descriptivo
-                if (!string.IsNullOrWhiteSpace(resource.Title) ||
-                    !string.IsNullOrWhiteSpace(resource.Description) ||
-                    resource.PhotoUrl != null)
-                {
-                    return BadRequest(new 
-                    { 
-                        error = "Como Remodeler no creador, no tienes permiso para cambiar título, descripción o foto. Solo puedes actualizar el progreso." 
-                    });
-                }
+                workItem.EditContent(finalTitle, finalDescription, finalPhotoUrl);
+                hasEdited = true;
             }
 
             // Si se realizaron cambios, persistirlos
@@ -309,9 +334,9 @@ public class WorkItemController : ControllerBase
                 await _unitOfWork.CompleteAsync();
             }
 
-            return Ok(new 
-            { 
-                message = "Tarea actualizada exitosamente.", 
+            return Ok(new
+            {
+                message = "Contenido de la tarea actualizado exitosamente.",
                 taskId = id,
                 changesApplied = hasEdited
             });
@@ -322,18 +347,108 @@ public class WorkItemController : ControllerBase
         }
         catch (Exception ex)
         {
-            return BadRequest(new { error = $"Error al actualizar la tarea: {ex.Message}" });
+            return BadRequest(new { error = $"Error al actualizar el contenido: {ex.Message}" });
         }
     }
 
     /// <summary>
-    /// Elimina una tarea existente.
+    /// [INTENT-DRIVEN] Actualiza el progreso (estado y fechas) de una tarea.
     /// 
-    /// Regla de Autorización:
-    /// - Solo el usuario que creó exactamente la tarea (CreatedByUserId == tokenUserId) puede eliminarla.
-    /// - Si no es el creador: 403 Forbid.
+    /// Reglas de Autorización ESTRICTAS:
+    /// - Solo el Remodeler asignado al Space (User ID == Space.RemodelerId) puede usar este endpoint
+    /// - SOLO permite editar: Status, PlannedStartDate, PlannedEndDate
+    /// - Fields: Title, Description, PhotoUrl son IGNORADOS si se envían
+    /// - Si no es el Remodeler asignado: 403 Forbid
     /// 
-    /// El usuario que realiza la acción se extrae del token JWT.
+    /// El usuario se extrae del token JWT.
+    /// </summary>
+    /// <param name="id">ID de la tarea a actualizar</param>
+    /// <param name="resource">DTO UpdateTaskProgressResource con status, plannedStartDate, plannedEndDate</param>
+    /// <returns>200 OK con mensaje de confirmación</returns>
+    /// <response code="200">Progreso de la tarea actualizado exitosamente</response>
+    /// <response code="400">Validación fallida o fechas inconsistentes</response>
+    /// <response code="401">Token JWT inválido o ausente</response>
+    /// <response code="403">Usuario no es el Remodeler asignado al Space</response>
+    /// <response code="404">Tarea o Space no encontrado</response>
+    [HttpPut("{id:int}/progress")]
+    [Authorize(Roles = "Remodeler")]
+    [ProducesResponseType(200)]
+    [ProducesResponseType(400)]
+    [ProducesResponseType(401)]
+    [ProducesResponseType(403)]
+    [ProducesResponseType(404)]
+    public async Task<IActionResult> UpdateTaskProgress(int id, [FromBody] UpdateTaskProgressResource resource)
+    {
+        if (!ModelState.IsValid)
+            return BadRequest(ModelState);
+
+        // Extraer el ID del usuario desde el token JWT
+        var requestingUserId = ExtractUserIdFromToken();
+        if (requestingUserId == Guid.Empty)
+            return Unauthorized(new { error = "Token JWT inválido o sin NameIdentifier." });
+
+        try
+        {
+            // Obtener la tarea
+            var workItem = await _workItemRepository.FindByIdAsync(id);
+            if (workItem == null)
+                return NotFound(new { error = $"WorkItem con ID {id} no encontrado." });
+
+            // Obtener el espacio para validar que el usuario sea el RemodelerId
+            var space = await _spaceRepository.FindByIdAsync(workItem.SpaceId);
+            if (space == null)
+                return NotFound(new { error = $"Space con ID {workItem.SpaceId} no encontrado." });
+
+            // Validar que el usuario sea el Remodeler EXACTO asignado al Space
+            if (space.RemodelerId != requestingUserId)
+                return Forbid();
+
+            // Aplicar cambios solo a progreso
+            bool hasEdited = false;
+
+            if (!string.IsNullOrWhiteSpace(resource.Status) ||
+                resource.PlannedStartDate.HasValue ||
+                resource.PlannedEndDate.HasValue)
+            {
+                string finalStatus = !string.IsNullOrWhiteSpace(resource.Status) ? resource.Status : workItem.Status;
+                DateTime? finalStartDate = resource.PlannedStartDate ?? workItem.PlannedStartDate;
+                DateTime? finalEndDate = resource.PlannedEndDate ?? workItem.PlannedEndDate;
+
+                workItem.UpdateProgress(finalStatus, finalStartDate, finalEndDate);
+                hasEdited = true;
+            }
+
+            // Si se realizaron cambios, persistirlos
+            if (hasEdited)
+            {
+                await _unitOfWork.CompleteAsync();
+            }
+
+            return Ok(new
+            {
+                message = "Progreso de la tarea actualizado exitosamente.",
+                taskId = id,
+                changesApplied = hasEdited
+            });
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(new { error = ex.Message });
+        }
+        catch (Exception ex)
+        {
+            return BadRequest(new { error = $"Error al actualizar el progreso: {ex.Message}" });
+        }
+    }
+
+    /// <summary>
+    /// [INTENT-DRIVEN] Elimina una tarea.
+    /// 
+    /// Reglas de Autorización ESTRICTAS:
+    /// - Solo el usuario que creó EXACTAMENTE la tarea (User ID == CreatedByUserId) puede eliminarla
+    /// - Si no es el creador exacto: 403 Forbid
+    /// 
+    /// El usuario se extrae del token JWT.
     /// </summary>
     /// <param name="id">ID de la tarea a eliminar</param>
     /// <returns>204 No Content si se eliminó correctamente</returns>
@@ -349,8 +464,8 @@ public class WorkItemController : ControllerBase
     public async Task<IActionResult> DeleteWorkItem(int id)
     {
         // Extraer el ID del usuario desde el token JWT
-        var userIdClaim = User.FindFirstValue(ClaimTypes.NameIdentifier);
-        if (string.IsNullOrEmpty(userIdClaim) || !Guid.TryParse(userIdClaim, out var requestingUserId))
+        var requestingUserId = ExtractUserIdFromToken();
+        if (requestingUserId == Guid.Empty)
             return Unauthorized(new { error = "Token JWT inválido o sin NameIdentifier." });
 
         try
@@ -378,10 +493,12 @@ public class WorkItemController : ControllerBase
 
     /// <summary>
     /// Actualiza el estado de una tarea existente (endpoint legado).
+    /// 
+    /// DEPRECATED: Esta API es legada y será eliminada en futuras versiones.
+    /// USA INSTEAD: PUT /api/v1/monitoring/tasks/{id}/progress con UpdateTaskProgressResource
+    /// 
     /// Solo el remodelador asignado al espacio puede cambiar el estado.
     /// El usuario que realiza la acción se extrae del token JWT.
-    /// 
-    /// DEPRECATED: Usar PUT /api/v1/monitoring/tasks/{id:int} en su lugar.
     /// </summary>
     /// <param name="id">ID de la tarea a actualizar</param>
     /// <param name="resource">DTO con el nuevo estado (sin incluir userId)</param>
@@ -398,15 +515,15 @@ public class WorkItemController : ControllerBase
     [ProducesResponseType(401)]
     [ProducesResponseType(403)]
     [ProducesResponseType(404)]
-    [Obsolete("Use PUT /api/v1/monitoring/tasks/{id:int} instead with full UpdateWorkItemResource.")]
+    [Obsolete("Use PUT /api/v1/monitoring/tasks/{id}/progress with UpdateTaskProgressResource instead. This endpoint will be removed in a future version.")]
     public async Task<IActionResult> UpdateWorkItemStatus(int id, [FromBody] UpdateWorkItemStatusResource resource)
     {
         if (!ModelState.IsValid)
             return BadRequest(ModelState);
 
         // Extraer el ID del usuario desde el token JWT
-        var userIdClaim = User.FindFirstValue(ClaimTypes.NameIdentifier);
-        if (string.IsNullOrEmpty(userIdClaim) || !Guid.TryParse(userIdClaim, out var requestingUserId))
+        var requestingUserId = ExtractUserIdFromToken();
+        if (requestingUserId == Guid.Empty)
             return Unauthorized(new { error = "Token JWT inválido o sin NameIdentifier." });
 
         var command = new UpdateWorkItemStatusCommand(
