@@ -116,6 +116,7 @@ builder.Services.AddSwaggerGen(c =>
 
 // Monitoring ACL
 builder.Services.AddScoped<MonitoringContextFacade>();
+builder.Services.AddScoped<IPropertyContextFacade, PropertyContextFacade>();
 
 // Función para añadir DbContext, simplificando la lógica
 void AddMySqlDbContext(IServiceCollection services, IConfiguration configuration, IWebHostEnvironment environment)

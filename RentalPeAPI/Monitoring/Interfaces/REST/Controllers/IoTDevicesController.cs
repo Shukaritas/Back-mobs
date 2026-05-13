@@ -12,11 +12,12 @@ using RentalPeAPI.Monitoring.Interfaces.REST.Resources;
 namespace RentalPeAPI.Monitoring.Interfaces.REST.Controllers;
 
 /// <summary>
-/// Controlador para dispositivos IoT vinculados a espacios (Spaces).
+/// Controlador para dispositivos IoT vinculados a espacios (Spaces) con simulación automática
+/// de telemetría, control de encendido/apagado y validaciones de seguridad por usuario creador.
 /// </summary>
 [ApiController]
 [Route("api/v1/monitoring/[controller]")]
-[Authorize] // ← CRÍTICO: Requiere autenticación JWT
+[Authorize] // ← CRÍTICO: Requiere autenticación JWT en TODOS los endpoints
 public class IoTDevicesController : ControllerBase
 {
     private readonly IMediator _mediator;
@@ -27,48 +28,71 @@ public class IoTDevicesController : ControllerBase
     }
 
     /// <summary>
-    /// Crea un nuevo dispositivo IoT para un espacio específico.
-    /// Solo accesible para usuarios autenticados (ambos roles).
+    /// POST: api/v1/monitoring/iot-devices
+    /// Crea un nuevo dispositivo IoT para un espacio específico con autocompletado de métricas.
+    /// Solo accesible para usuarios autenticados. El creador se extrae del token JWT.
     /// </summary>
     [HttpPost]
     [Authorize(Roles = "Homeowner,Remodeler")]
+    [ProducesResponseType(201)]
+    [ProducesResponseType(400)]
+    [ProducesResponseType(401)]
+    [ProducesResponseType(403)]
     public async Task<IActionResult> CreateDevice([FromBody] CreateIoTDeviceResource resource)
     {
         // Validar que el usuario autenticado tenga un NameIdentifier válido
         var userIdClaim = User.FindFirstValue(System.Security.Claims.ClaimTypes.NameIdentifier);
-        if (string.IsNullOrEmpty(userIdClaim))
+        if (string.IsNullOrEmpty(userIdClaim) || !Guid.TryParse(userIdClaim, out var createdByUserId))
             return Unauthorized(new { error = "Token JWT inválido o sin NameIdentifier." });
 
-        var command = new CreateIoTDeviceCommand(
-            resource.SpaceId,
-            resource.Type,
-            resource.Name,
-            resource.SerialNumber
-        );
+        try
+        {
+            var command = new CreateIoTDeviceCommand(
+                SpaceId: resource.SpaceId,
+                CreatedByUserId: createdByUserId,
+                Type: resource.Type,
+                Name: resource.Name,
+                SerialNumber: resource.SerialNumber,
+                CustomMetricName: resource.CustomMetricName,
+                CustomUnit: resource.CustomUnit
+            );
 
-        var device = await _mediator.Send(command);
+            var device = await _mediator.Send(command);
 
-        var deviceResource = new IoTDeviceResource(
-            device.Id,
-            device.SpaceId,
-            device.Type,
-            device.Status,
-            device.InstalledAt
-        );
+            var deviceResource = new IoTDeviceSummaryResource(
+                device.Id,
+                device.SpaceId,
+                device.Type,
+                device.Name,
+                device.SerialNumber
+            );
 
-        return CreatedAtAction(
-            nameof(ListDevicesBySpace),
-            new { spaceId = device.SpaceId },
-            deviceResource
-        );
+            return CreatedAtAction(
+                nameof(ListDevicesBySpace),
+                new { spaceId = device.SpaceId },
+                deviceResource
+            );
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { error = ex.Message });
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(new { error = ex.Message });
+        }
     }
 
     /// <summary>
+    /// GET: api/v1/monitoring/iot-devices/space/{spaceId}
     /// Lista todos los dispositivos IoT de un espacio específico.
+    /// Simula telemetría continua: actualiza valores para dispositivos encendidos.
     /// Solo accesible para usuarios autenticados (ambos roles).
     /// </summary>
     [HttpGet("space/{spaceId:long}")]
     [Authorize(Roles = "Homeowner,Remodeler")]
+    [ProducesResponseType(200)]
+    [ProducesResponseType(401)]
     public async Task<IActionResult> ListDevicesBySpace(long spaceId)
     {
         // Validar que el usuario autenticado tenga un NameIdentifier válido
@@ -79,12 +103,139 @@ public class IoTDevicesController : ControllerBase
         var query = new ListIoTDevicesBySpaceQuery(spaceId);
         var devices = await _mediator.Send(query);
 
-        var resources = devices.Select(d => new IoTDeviceResource(
+        var resources = devices.Select(d => new IoTDeviceSummaryResource(
             d.Id,
             d.SpaceId,
             d.Type,
-            d.Status,
-            d.InstalledAt
+            d.Name,
+            d.SerialNumber
+        ));
+
+        return Ok(resources);
+    }
+
+    /// <summary>
+    /// PUT: api/v1/monitoring/iot-devices/{deviceId}
+    /// Actualiza nombre y número de serie de un dispositivo IoT.
+    /// Solo el usuario creador del dispositivo puede actualizar.
+    /// </summary>
+    [HttpPut("{deviceId:long}")]
+    [Authorize(Roles = "Homeowner,Remodeler")]
+    [ProducesResponseType(204)]
+    [ProducesResponseType(400)]
+    [ProducesResponseType(401)]
+    [ProducesResponseType(403)]
+    [ProducesResponseType(404)]
+    public async Task<IActionResult> UpdateDevice(long deviceId, [FromBody] UpdateIoTDeviceResource resource)
+    {
+        var userIdClaim = User.FindFirstValue(System.Security.Claims.ClaimTypes.NameIdentifier);
+        if (string.IsNullOrEmpty(userIdClaim))
+            return Unauthorized(new { error = "Token JWT inválido o sin NameIdentifier." });
+
+        try
+        {
+            // Buscar el dispositivo para validar permisos
+            var device = await _mediator.Send(new GetIoTDeviceByIdQuery(deviceId));
+            if (device == null)
+                return NotFound(new { error = $"Dispositivo con ID {deviceId} no encontrado." });
+
+            // Validar que el usuario sea el creador
+            if (!Guid.TryParse(userIdClaim, out var userId) || device.CreatedByUserId != userId)
+                return Forbid();
+
+            // Actualizar el dispositivo
+            device.UpdateDetails(resource.Name, resource.SerialNumber ?? string.Empty);
+
+            // Crear un comando para persistir cambios
+            var updateCommand = new UpdateIoTDeviceCommand(deviceId, resource.Name, resource.SerialNumber);
+            await _mediator.Send(updateCommand);
+
+            return NoContent();
+        }
+        catch (Exception ex)
+        {
+            return BadRequest(new { error = ex.Message });
+        }
+    }
+
+    /// <summary>
+    /// PUT: api/v1/monitoring/iot-devices/{deviceId}/toggle
+    /// Alterna el estado de encendido/apagado de un dispositivo IoT.
+    /// Solo el usuario creador del dispositivo puede togglear.
+    /// Si se enciende, se genera inmediatamente un nuevo valor de telemetría.
+    /// </summary>
+    [HttpPut("{deviceId:long}/toggle")]
+    [Authorize(Roles = "Homeowner,Remodeler")]
+    [ProducesResponseType(200)]
+    [ProducesResponseType(401)]
+    [ProducesResponseType(403)]
+    [ProducesResponseType(404)]
+    public async Task<IActionResult> TogglePower(long deviceId)
+    {
+        var userIdClaim = User.FindFirstValue(System.Security.Claims.ClaimTypes.NameIdentifier);
+        if (string.IsNullOrEmpty(userIdClaim) || !Guid.TryParse(userIdClaim, out var userId))
+            return Unauthorized(new { error = "Token JWT inválido o sin NameIdentifier." });
+
+        try
+        {
+            var command = new ToggleIoTDevicePowerCommand(deviceId, userId);
+            var device = await _mediator.Send(command);
+
+            var resource = new IoTDeviceSummaryResource(
+                device.Id,
+                device.SpaceId,
+                device.Type,
+                device.Name,
+                device.SerialNumber
+            );
+
+            return Ok(new
+            {
+                message = $"Dispositivo {(device.IsOn ? "encendido" : "apagado")} exitosamente.",
+                data = resource,
+                isOn = device.IsOn
+            });
+        }
+        catch (UnauthorizedAccessException)
+        {
+            return Forbid();
+        }
+        catch (KeyNotFoundException)
+        {
+            return NotFound(new { error = $"Dispositivo con ID {deviceId} no encontrado." });
+        }
+        catch (Exception ex)
+        {
+            return BadRequest(new { error = ex.Message });
+        }
+    }
+
+    /// <summary>
+    /// GET: api/v1/monitoring/iot-devices/my-devices
+    /// Lista todos los dispositivos IoT creados por el usuario autenticado.
+    /// Simula telemetría continua: actualiza valores para dispositivos encendidos.
+    /// Solo accesible para usuarios autenticados (ambos roles).
+    /// </summary>
+    [HttpGet("my-devices")]
+    [Authorize(Roles = "Homeowner,Remodeler")]
+    [ProducesResponseType(200)]
+    [ProducesResponseType(401)]
+    public async Task<IActionResult> GetMyDevices()
+    {
+        // Validar que el usuario autenticado tenga un NameIdentifier válido
+        var userIdClaim = User.FindFirstValue(System.Security.Claims.ClaimTypes.NameIdentifier);
+        if (string.IsNullOrEmpty(userIdClaim) || !Guid.TryParse(userIdClaim, out var userId))
+            return Unauthorized(new { error = "Token JWT inválido o sin NameIdentifier." });
+
+        var query = new GetIoTDevicesByUserIdQuery(userId);
+        var devices = await _mediator.Send(query);
+
+        var resources = devices.Select(d => new IoTDeviceSummaryResource(
+            d.Id,
+            d.SpaceId,
+            d.Type,
+            d.Name,
+            d.SerialNumber
         ));
 
         return Ok(resources);

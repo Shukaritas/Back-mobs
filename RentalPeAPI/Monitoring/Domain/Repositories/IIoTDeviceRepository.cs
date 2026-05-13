@@ -7,4 +7,5 @@ public interface IIoTDeviceRepository
     Task AddAsync(IoTDevice device);
     Task<IoTDevice?> FindByIdAsync(long id);
     Task<IEnumerable<IoTDevice>> ListBySpaceIdAsync(long spaceId);
+    Task<IEnumerable<IoTDevice>> ListByCreatedByUserIdAsync(Guid createdByUserId);
 }

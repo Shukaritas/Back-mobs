@@ -27,6 +27,7 @@ public class MonitoringContextFacade : IMonitoringContextFacade
 
     /// <summary>
     /// Registra un nuevo IoTDevice en un espacio (Space).
+    /// Nota: UseCase previo para ACL, requiere system user ID.
     /// </summary>
     public async Task<int> RegisterIoTDeviceAsync(
         long spaceId,
@@ -34,11 +35,17 @@ public class MonitoringContextFacade : IMonitoringContextFacade
         string serialNumber,
         string type)
     {
+        // System ID para registros automáticos del ACL
+        var systemUserId = Guid.Parse("00000000-0000-0000-0000-000000000000");
+
         var command = new CreateIoTDeviceCommand(
-            SpaceId:      spaceId,
-            Type:         type,
-            Name:         name,
-            SerialNumber: serialNumber
+            SpaceId: spaceId,
+            CreatedByUserId: systemUserId,
+            Type: type,
+            Name: name,
+            SerialNumber: serialNumber,
+            CustomMetricName: null,
+            CustomUnit: null
         );
 
         var device = await _mediator.Send(command);

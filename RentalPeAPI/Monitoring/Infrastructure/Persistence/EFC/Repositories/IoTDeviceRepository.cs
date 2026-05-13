@@ -30,4 +30,11 @@ public class IoTDeviceRepository : IIoTDeviceRepository
             .Where(d => d.SpaceId == spaceId)
             .ToListAsync();
     }
+
+    public async Task<IEnumerable<IoTDevice>> ListByCreatedByUserIdAsync(Guid createdByUserId)
+    {
+        return await _context.IoTDevices
+            .Where(d => d.CreatedByUserId == createdByUserId)
+            .ToListAsync();
+    }
 }

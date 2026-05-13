@@ -1,8 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Threading;
-using System.Threading.Tasks;
-using MediatR;
+﻿using MediatR;
 using RentalPeAPI.Monitoring.Application.Internal.QueryServices;
 using RentalPeAPI.Monitoring.Domain.Model.Aggregates;
 using RentalPeAPI.Monitoring.Domain.Repositories;
@@ -11,16 +7,16 @@ using RentalPeAPI.Shared.Domain.Repositories;
 namespace RentalPeAPI.Monitoring.Application.Internal.EventHandlers;
 
 /// <summary>
-/// Handler para listar dispositivos IoT en un espacio con simulación continua de telemetría.
-/// Para cada dispositivo encendido, se genera un nuevo valor de telemetría antes de retornar.
+/// Handler para obtener todos los dispositivos IoT creados por un usuario específico.
+/// Simula telemetría continua para cada dispositivo encendido.
 /// </summary>
-public class ListIoTDevicesBySpaceQueryHandler
-    : IRequestHandler<ListIoTDevicesBySpaceQuery, IEnumerable<IoTDevice>>
+public class GetIoTDevicesByUserIdQueryHandler
+    : IRequestHandler<GetIoTDevicesByUserIdQuery, IEnumerable<IoTDevice>>
 {
     private readonly IIoTDeviceRepository _deviceRepository;
     private readonly IUnitOfWork _unitOfWork;
 
-    public ListIoTDevicesBySpaceQueryHandler(
+    public GetIoTDevicesByUserIdQueryHandler(
         IIoTDeviceRepository deviceRepository,
         IUnitOfWork unitOfWork)
     {
@@ -29,11 +25,11 @@ public class ListIoTDevicesBySpaceQueryHandler
     }
 
     public async Task<IEnumerable<IoTDevice>> Handle(
-        ListIoTDevicesBySpaceQuery query,
+        GetIoTDevicesByUserIdQuery query,
         CancellationToken cancellationToken)
     {
-        // Obtener todos los dispositivos del espacio
-        var devices = await _deviceRepository.ListBySpaceIdAsync(query.SpaceId);
+        // Obtener todos los dispositivos creados por el usuario
+        var devices = await _deviceRepository.ListByCreatedByUserIdAsync(query.UserId);
 
         // Simular telemetría: invocar GenerateRandomValue() para cada dispositivo encendido
         foreach (var device in devices)
@@ -47,3 +43,4 @@ public class ListIoTDevicesBySpaceQueryHandler
         return devices;
     }
 }
+
