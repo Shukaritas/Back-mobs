@@ -4,6 +4,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using MediatR;
 using RentalPeAPI.Monitoring.Application.Internal.CommandServices;
+using RentalPeAPI.Monitoring.Domain.Entities;
 using RentalPeAPI.Monitoring.Domain.Repositories;
 using RentalPeAPI.Property.Domain.Repositories;
 using RentalPeAPI.Shared.Domain.Repositories;
@@ -13,8 +14,9 @@ namespace RentalPeAPI.Monitoring.Application.Internal.EventHandlers;
 /// <summary>
 /// Manejador del comando UpdateWorkItemStatusCommand.
 /// Valida que solo el remodelador asignado al espacio pueda cambiar el estado de la tarea.
+/// Retorna la entidad actualizada.
 /// </summary>
-public class UpdateWorkItemStatusCommandHandler : IRequestHandler<UpdateWorkItemStatusCommand, bool>
+public class UpdateWorkItemStatusCommandHandler : IRequestHandler<UpdateWorkItemStatusCommand, WorkItem?>
 {
     private readonly IWorkItemRepository _workItemRepository;
     private readonly ISpaceRepository _spaceRepository;
@@ -30,7 +32,7 @@ public class UpdateWorkItemStatusCommandHandler : IRequestHandler<UpdateWorkItem
         _unitOfWork = unitOfWork;
     }
 
-    public async Task<bool> Handle(UpdateWorkItemStatusCommand command, CancellationToken cancellationToken)
+    public async Task<WorkItem?> Handle(UpdateWorkItemStatusCommand command, CancellationToken cancellationToken)
     {
         // 1. Obtener la tarea
         var workItem = await _workItemRepository.FindByIdAsync(command.TaskId);
@@ -48,13 +50,14 @@ public class UpdateWorkItemStatusCommandHandler : IRequestHandler<UpdateWorkItem
                 $"El usuario {command.RequestingUserId} no tiene permisos para cambiar el estado de la tarea. " +
                 $"Solo el remodelador asignado al espacio (RemodelerId: {space.RemodelerId}) puede hacerlo.");
 
-        // 4. Actualizar el estado de la tarea
+        // 4. Actualizar el estado de la tarea usando el método de dominio
         workItem.UpdateStatus(command.Status);
 
         // 5. Persistir cambios
         await _unitOfWork.CompleteAsync();
 
-        return true;
+        // 6. Retornar la entidad actualizada
+        return workItem;
     }
 }
 

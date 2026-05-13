@@ -277,10 +277,11 @@ public class WorkItemController : ControllerBase
     /// - Si no es el creador: 403 Forbid
     /// 
     /// El usuario se extrae del token JWT.
+    /// Devuelve 200 OK con el WorkItemResource actualizado.
     /// </summary>
     /// <param name="id">ID de la tarea a actualizar</param>
     /// <param name="resource">DTO UpdateTaskContentResource con title, description, photoUrl</param>
-    /// <returns>200 OK con mensaje de confirmación</returns>
+    /// <returns>200 OK con WorkItemResource actualizado</returns>
     /// <response code="200">Contenido de la tarea actualizado exitosamente</response>
     /// <response code="400">Validación fallida o contenido inválido</response>
     /// <response code="401">Token JWT inválido o ausente</response>
@@ -314,8 +315,6 @@ public class WorkItemController : ControllerBase
                 return Forbid();
 
             // Aplicar cambios solo a contenido descriptivo
-            bool hasEdited = false;
-
             if (!string.IsNullOrWhiteSpace(resource.Title) ||
                 !string.IsNullOrWhiteSpace(resource.Description) ||
                 resource.PhotoUrl != null)
@@ -325,21 +324,25 @@ public class WorkItemController : ControllerBase
                 string? finalPhotoUrl = resource.PhotoUrl ?? workItem.PhotoUrl;
 
                 workItem.EditContent(finalTitle, finalDescription, finalPhotoUrl);
-                hasEdited = true;
-            }
-
-            // Si se realizaron cambios, persistirlos
-            if (hasEdited)
-            {
                 await _unitOfWork.CompleteAsync();
             }
 
-            return Ok(new
-            {
-                message = "Contenido de la tarea actualizado exitosamente.",
-                taskId = id,
-                changesApplied = hasEdited
-            });
+            // Transformar la entidad actualizada a WorkItemResource
+            var workItemResource = new WorkItemResource(
+                workItem.Id,
+                workItem.SpaceId,
+                workItem.CreatedByUserId,
+                workItem.Title,
+                workItem.Description,
+                workItem.PhotoUrl,
+                workItem.PlannedStartDate,
+                workItem.PlannedEndDate,
+                workItem.Status,
+                workItem.CreatedAt,
+                workItem.CompletedAt
+            );
+
+            return Ok(workItemResource);
         }
         catch (ArgumentException ex)
         {
@@ -361,10 +364,11 @@ public class WorkItemController : ControllerBase
     /// - Si no es el Remodeler asignado: 403 Forbid
     /// 
     /// El usuario se extrae del token JWT.
+    /// Devuelve 200 OK con el WorkItemResource actualizado (incluyendo CompletedAt calculado).
     /// </summary>
     /// <param name="id">ID de la tarea a actualizar</param>
     /// <param name="resource">DTO UpdateTaskProgressResource con status, plannedStartDate, plannedEndDate</param>
-    /// <returns>200 OK con mensaje de confirmación</returns>
+    /// <returns>200 OK con WorkItemResource actualizado</returns>
     /// <response code="200">Progreso de la tarea actualizado exitosamente</response>
     /// <response code="400">Validación fallida o fechas inconsistentes</response>
     /// <response code="401">Token JWT inválido o ausente</response>
@@ -404,8 +408,6 @@ public class WorkItemController : ControllerBase
                 return Forbid();
 
             // Aplicar cambios solo a progreso
-            bool hasEdited = false;
-
             if (!string.IsNullOrWhiteSpace(resource.Status) ||
                 resource.PlannedStartDate.HasValue ||
                 resource.PlannedEndDate.HasValue)
@@ -415,21 +417,25 @@ public class WorkItemController : ControllerBase
                 DateTime? finalEndDate = resource.PlannedEndDate ?? workItem.PlannedEndDate;
 
                 workItem.UpdateProgress(finalStatus, finalStartDate, finalEndDate);
-                hasEdited = true;
-            }
-
-            // Si se realizaron cambios, persistirlos
-            if (hasEdited)
-            {
                 await _unitOfWork.CompleteAsync();
             }
 
-            return Ok(new
-            {
-                message = "Progreso de la tarea actualizado exitosamente.",
-                taskId = id,
-                changesApplied = hasEdited
-            });
+            // Transformar la entidad actualizada a WorkItemResource
+            var workItemResource = new WorkItemResource(
+                workItem.Id,
+                workItem.SpaceId,
+                workItem.CreatedByUserId,
+                workItem.Title,
+                workItem.Description,
+                workItem.PhotoUrl,
+                workItem.PlannedStartDate,
+                workItem.PlannedEndDate,
+                workItem.Status,
+                workItem.CreatedAt,
+                workItem.CompletedAt
+            );
+
+            return Ok(workItemResource);
         }
         catch (ArgumentException ex)
         {
@@ -491,72 +497,5 @@ public class WorkItemController : ControllerBase
         }
     }
 
-    /// <summary>
-    /// Actualiza el estado de una tarea existente (endpoint legado).
-    /// 
-    /// DEPRECATED: Esta API es legada y será eliminada en futuras versiones.
-    /// USA INSTEAD: PUT /api/v1/monitoring/tasks/{id}/progress con UpdateTaskProgressResource
-    /// 
-    /// Solo el remodelador asignado al espacio puede cambiar el estado.
-    /// El usuario que realiza la acción se extrae del token JWT.
-    /// </summary>
-    /// <param name="id">ID de la tarea a actualizar</param>
-    /// <param name="resource">DTO con el nuevo estado (sin incluir userId)</param>
-    /// <returns>200 OK si se actualizó correctamente</returns>
-    /// <response code="200">Estado actualizado exitosamente</response>
-    /// <response code="400">Validación fallida o tarea/espacio no encontrados</response>
-    /// <response code="401">Token JWT inválido o ausente</response>
-    /// <response code="403">Usuario no tiene permisos para cambiar el estado (no es el remodelador asignado)</response>
-    /// <response code="404">Tarea no encontrada</response>
-    [HttpPut("{id:int}/status")]
-    [Authorize(Roles = "Remodeler")] // Solo remodeladores pueden cambiar estado
-    [ProducesResponseType(200)]
-    [ProducesResponseType(400)]
-    [ProducesResponseType(401)]
-    [ProducesResponseType(403)]
-    [ProducesResponseType(404)]
-    [Obsolete("Use PUT /api/v1/monitoring/tasks/{id}/progress with UpdateTaskProgressResource instead. This endpoint will be removed in a future version.")]
-    public async Task<IActionResult> UpdateWorkItemStatus(int id, [FromBody] UpdateWorkItemStatusResource resource)
-    {
-        if (!ModelState.IsValid)
-            return BadRequest(ModelState);
-
-        // Extraer el ID del usuario desde el token JWT
-        var requestingUserId = ExtractUserIdFromToken();
-        if (requestingUserId == Guid.Empty)
-            return Unauthorized(new { error = "Token JWT inválido o sin NameIdentifier." });
-
-        var command = new UpdateWorkItemStatusCommand(
-            id,
-            resource.Status,
-            requestingUserId
-        );
-
-        try
-        {
-            var success = await _mediator.Send(command);
-
-            if (success)
-                return Ok(new { message = "Estado de la tarea actualizado exitosamente." });
-
-            return BadRequest(new { error = "No fue posible actualizar el estado de la tarea." });
-        }
-        catch (KeyNotFoundException ex)
-        {
-            return NotFound(new { error = ex.Message });
-        }
-        catch (UnauthorizedAccessException)
-        {
-            return Forbid();
-        }
-        catch (ArgumentException ex)
-        {
-            return BadRequest(new { error = ex.Message });
-        }
-        catch (Exception ex)
-        {
-            return BadRequest(new { error = $"Error al actualizar estado: {ex.Message}" });
-        }
-    }
 }
 
