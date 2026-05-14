@@ -1,5 +1,4 @@
-﻿using RentalPeAPI.Property.Domain.Aggregates.Entities;
-using RentalPeAPI.Property.Domain.Aggregates.Enums;
+﻿using RentalPeAPI.Property.Domain.Aggregates.Enums;
 
 namespace RentalPeAPI.Property.Domain.Aggregates;
 
@@ -29,9 +28,6 @@ public class Space
     
     // Imágenes como URLs (colección de strings)
     public List<string> Images { get; private set; } = new();
-    
-    // Servicios asociados al espacio
-    public List<Service> Services { get; private set; } = new();
     
     public DateTimeOffset PublishedAt { get; private set; }
     public DateTimeOffset? AcceptedAt { get; private set; }

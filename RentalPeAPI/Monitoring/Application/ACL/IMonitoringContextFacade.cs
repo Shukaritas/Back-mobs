@@ -21,16 +21,6 @@ public interface IMonitoringContextFacade
         string serialNumber,
         string type);
 
-    /// <summary>
-    /// Ingesta una lectura de telemetría para un espacio y dispositivo.
-    /// </summary>
-    Task IngestTelemetryReadingAsync(
-        long spaceId,
-        long iotDeviceId,
-        string metricName,
-        decimal value,
-        string unit,
-        DateTime timestamp);
 
     /// <summary>
     /// Crea una tarea de trabajo vinculada a un espacio.

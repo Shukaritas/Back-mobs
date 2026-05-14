@@ -47,15 +47,17 @@ public class IoTDevicesController : ControllerBase
 
         try
         {
-            var command = new CreateIoTDeviceCommand(
-                SpaceId: resource.SpaceId,
-                CreatedByUserId: createdByUserId,
-                Type: resource.Type,
-                Name: resource.Name,
-                SerialNumber: resource.SerialNumber,
-                CustomMetricName: resource.CustomMetricName,
-                CustomUnit: resource.CustomUnit
-            );
+             var command = new CreateIoTDeviceCommand(
+                 SpaceId: resource.SpaceId,
+                 CreatedByUserId: createdByUserId,
+                 Type: resource.Type,
+                 Name: resource.Name,
+                 SerialNumber: resource.SerialNumber,
+                 CustomMetricName: resource.CustomMetricName,
+                 CustomUnit: resource.CustomUnit,
+                 CustomMinThreshold: resource.CustomMinThreshold,
+                 CustomMaxThreshold: resource.CustomMaxThreshold
+             );
 
             var device = await _mediator.Send(command);
 

@@ -3,13 +3,12 @@ using Microsoft.EntityFrameworkCore;
 using RentalPeAPI.User.Domain; 
 using RentalPeAPI.User.Infrastructure.Persistence.EFC.Configuration; 
 using RentalPeAPI.Property.Domain.Aggregates; 
-using RentalPeAPI.Property.Domain.Aggregates.Entities; 
 using RentalPeAPI.Property.Infrastructure.Persistence.EFC.Configuration; 
 using RentalPeAPI.Payments.Infrastructure.Persistence.EFC.configuration.extensions;
-using EFCore.NamingConventions; // NECESARIO para UseSnakeCaseNamingConvention
+using EFCore.NamingConventions;
 
-using RentalPeAPI.Monitoring.Domain.Entities;
 using RentalPeAPI.Monitoring.Domain.Model.Aggregates;
+using RentalPeAPI.Monitoring.Domain.Entities;
 using RentalPeAPI.Monitoring.Infrastructure.Persistence.EFC.Configuration;
 
 namespace RentalPeAPI.Shared.Infrastructure.Persistence.EFC.Configuration; 
@@ -25,13 +24,11 @@ public class AppDbContext(DbContextOptions options) : DbContext(options)
 
     // --- DBSETS DEL BOUNDED CONTEXT PROPERTY/SPACES ---
     public DbSet<Space> Spaces { get; set; }
-    public DbSet<Service> Services { get; set; }
 
     // --- DBSETS DEL BOUNDED CONTEXT MONITORING ---
     public DbSet<IoTDevice> IoTDevices { get; set; }
-    public DbSet<Reading> Readings { get; set; }
-    public DbSet<WorkItem> Tasks { get; set; }
-    public DbSet<Notification> Notifications { get; set; }
+    public DbSet<Monitoring.Domain.Entities.WorkItem> Tasks { get; set; }
+    public DbSet<Monitoring.Domain.Entities.Notification> Notifications { get; set; }
     
     // --- DBSETS DEL BOUNDED CONTEXT PAYMENTS ---
     public DbSet<Payments.Domain.Model.Aggregates.Payment> Payments { get; set; } = default!;
@@ -62,11 +59,9 @@ public class AppDbContext(DbContextOptions options) : DbContext(options)
         
         // 3. Space/Property BC Configuration
         builder.ApplyConfiguration(new SpaceConfiguration());
-        builder.ApplyConfiguration(new ServiceConfiguration());
         
         // 4. Monitoring BC Configuration
         builder.ApplyConfiguration(new IoTDeviceConfiguration());
-        builder.ApplyConfiguration(new ReadingConfiguration());
         builder.ApplyConfiguration(new WorkItemConfiguration());
         builder.ApplyConfiguration(new NotificationConfiguration());
 

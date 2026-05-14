@@ -33,9 +33,14 @@ public class IoTDevice
     public string SerialNumber { get; private set; } = string.Empty;
     public string MetricName { get; private set; } = string.Empty;
     public string Unit { get; private set; } = string.Empty;
-    public int Value { get; private set; }
+    public double Value { get; private set; }
     public DateTime Timestamp { get; private set; }
     public bool IsOn { get; private set; }
+    
+    // Propiedades privadas para umbrales y estado de alerta
+    private decimal MinThreshold { get; set; }
+    private decimal MaxThreshold { get; set; }
+    private bool IsInAlertState { get; set; }
 
     // Constructor privado para EF Core
     private IoTDevice() { }
@@ -50,6 +55,8 @@ public class IoTDevice
     /// <param name="serialNumber">Número de serie del dispositivo</param>
     /// <param name="customMetricName">Nombre de métrica personalizada (requerida si type es OTHER/OTHERS)</param>
     /// <param name="customUnit">Unidad personalizada (requerida si type es OTHER/OTHERS)</param>
+    /// <param name="customMinThreshold">Umbral mínimo personalizado (requerido si type es OTHER/OTHERS)</param>
+    /// <param name="customMaxThreshold">Umbral máximo personalizado (requerido si type es OTHER/OTHERS)</param>
     public IoTDevice(
         long spaceId,
         Guid createdByUserId,
@@ -57,7 +64,9 @@ public class IoTDevice
         string name,
         string serialNumber,
         string? customMetricName = null,
-        string? customUnit = null)
+        string? customUnit = null,
+        decimal? customMinThreshold = null,
+        decimal? customMaxThreshold = null)
     {
         if (spaceId <= 0)
             throw new ArgumentException("SpaceId debe ser > 0", nameof(spaceId));
@@ -84,30 +93,50 @@ public class IoTDevice
             MetricName = metrics.MetricName;
             Unit = metrics.Unit;
         }
-        else if (Type is "OTHER" or "OTHERS")
-        {
-            // Para tipos personalizados, validar que se proporcionen los valores
-            if (string.IsNullOrWhiteSpace(customMetricName))
-                throw new ArgumentException(
-                    "customMetricName es obligatorio cuando Type es OTHER u OTHERS",
-                    nameof(customMetricName));
+         else if (Type is "OTHER" or "OTHERS")
+         {
+             // Para tipos personalizados, validar que se proporcionen los valores
+             if (string.IsNullOrWhiteSpace(customMetricName))
+                 throw new ArgumentException(
+                     "customMetricName es obligatorio cuando Type es OTHER u OTHERS",
+                     nameof(customMetricName));
 
-            if (string.IsNullOrWhiteSpace(customUnit))
-                throw new ArgumentException(
-                    "customUnit es obligatorio cuando Type es OTHER u OTHERS",
-                    nameof(customUnit));
+             if (string.IsNullOrWhiteSpace(customUnit))
+                 throw new ArgumentException(
+                     "customUnit es obligatorio cuando Type es OTHER u OTHERS",
+                     nameof(customUnit));
 
-            MetricName = customMetricName;
-            Unit = customUnit;
-        }
+             MetricName = customMetricName;
+             Unit = customUnit;
+         }
+         
+         // Inicializar umbrales según el tipo de dispositivo
+         (MinThreshold, MaxThreshold) = Type switch
+         {
+             "HUMIDITY" => (30, 70),
+             "TEMPERATURE" => (15, 30),
+             "VOLTAGE" => (200, 240),
+             "LOAD" => (0, 350),
+             "AIR_QUALITY" => (0, 100),
+             "OTHER" or "OTHERS" when customMinThreshold.HasValue && customMaxThreshold.HasValue 
+                 => (customMinThreshold.Value, customMaxThreshold.Value),
+             "OTHER" or "OTHERS" 
+                 => throw new ArgumentException(
+                     "customMinThreshold y customMaxThreshold son obligatorios para tipos personalizados (OTHER/OTHERS).",
+                     nameof(type)),
+             _ => throw new ArgumentException(
+                 "Tipo de dispositivo no reconocido.",
+                 nameof(type))
+         };
 
         SpaceId = spaceId;
         CreatedByUserId = createdByUserId;
         Name = name;
         SerialNumber = serialNumber ?? string.Empty;
         IsOn = true;
+        IsInAlertState = false;
         Timestamp = DateTime.UtcNow;
-        GenerateRandomValue(); // Genera el valor inicial
+        GenerateRandomValue(); // Genera el valor inicial con lógica inteligente
     }
 
     /// <summary>
@@ -138,7 +167,9 @@ public class IoTDevice
     }
 
     /// <summary>
-    /// Genera un valor aleatorio de telemetría y actualiza el timestamp.
+    /// Genera un valor de telemetría inteligente según el tipo de dispositivo.
+    /// Implementa lógica realista con 85% de valores normales y 15% de picos extremos
+    /// para simular comportamientos anómalos y probar alertas.
     /// Solo se ejecuta si el dispositivo está encendido (IsOn = true).
     /// </summary>
     public void GenerateRandomValue()
@@ -146,7 +177,33 @@ public class IoTDevice
         if (!IsOn)
             return;
 
-        Value = Random.Shared.Next(10, 100);
+        // Lógica de simulación oscilante realista:
+        // 85% genera valor normal dentro del rango estable
+        // 15% genera valor extremo para forzar cruce de umbrales y probar alertas
+        bool triggerAnomaly = Random.Shared.NextDouble() > 0.85;
+
+        Value = Type switch
+        {
+            "HUMIDITY" => triggerAnomaly ? Random.Shared.Next(20, 85) : Random.Shared.Next(40, 65),
+            "TEMPERATURE" => triggerAnomaly ? Random.Shared.Next(10, 40) : Random.Shared.Next(18, 26),
+            "VOLTAGE" => triggerAnomaly ? Random.Shared.Next(180, 260) : Random.Shared.Next(215, 230),
+            "LOAD" => triggerAnomaly ? Random.Shared.Next(300, 450) : Random.Shared.Next(50, 250),
+            "AIR_QUALITY" => triggerAnomaly ? Random.Shared.Next(90, 150) : Random.Shared.Next(15, 50),
+            _ => Random.Shared.Next((int)MinThreshold - 10, (int)MaxThreshold + 10)
+        };
+
         Timestamp = DateTime.UtcNow;
+        
+        // Evaluar si se ha cruzado umbral (para implementaciones futuras de alertas)
+        EvaluateThresholds();
+    }
+    
+    /// <summary>
+    /// Evalúa si el valor actual ha cruzado los umbrales mínimo o máximo.
+    /// Este método es preparatorio para futuros sistemas de alertas.
+    /// </summary>
+    private void EvaluateThresholds()
+    {
+        IsInAlertState = Value < (double)MinThreshold || Value > (double)MaxThreshold;
     }
 }

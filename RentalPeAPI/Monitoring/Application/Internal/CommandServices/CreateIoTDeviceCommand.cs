@@ -14,5 +14,7 @@ public record CreateIoTDeviceCommand(
     string Name,
     string? SerialNumber,
     string? CustomMetricName,
-    string? CustomUnit
+    string? CustomUnit,
+    decimal? CustomMinThreshold,
+    decimal? CustomMaxThreshold
 ) : IRequest<IoTDevice>;

@@ -6,8 +6,6 @@ namespace RentalPeAPI.Monitoring.Application.ACL;
 
 using CreateIoTDeviceCommand =
     RentalPeAPI.Monitoring.Application.Internal.CommandServices.CreateIoTDeviceCommand;
-using IngestReadingCommand =
-    RentalPeAPI.Monitoring.Application.Internal.CommandServices.IngestReadingCommand;
 using CreateWorkItemCommand =
     RentalPeAPI.Monitoring.Application.Internal.CommandServices.CreateWorkItemCommand;
 
@@ -45,7 +43,9 @@ public class MonitoringContextFacade : IMonitoringContextFacade
             Name: name,
             SerialNumber: serialNumber,
             CustomMetricName: null,
-            CustomUnit: null
+            CustomUnit: null,
+            CustomMinThreshold: null,
+            CustomMaxThreshold: null
         );
 
         var device = await _mediator.Send(command);
@@ -54,28 +54,6 @@ public class MonitoringContextFacade : IMonitoringContextFacade
         return (int)device.Id;
     }
 
-    /// <summary>
-    /// Envía una lectura de telemetría para un espacio específico.
-    /// </summary>
-    public async Task IngestTelemetryReadingAsync(
-        long spaceId,
-        long iotDeviceId,
-        string metricName,
-        decimal value,
-        string unit,
-        DateTime timestamp)
-    {
-        var command = new IngestReadingCommand(
-            SpaceId:      spaceId,
-            IoTDeviceId:  iotDeviceId,
-            MetricName:   metricName,
-            Value:        value,
-            Unit:         unit,
-            Timestamp:    timestamp
-        );
-
-        await _mediator.Send(command);
-    }
 
      /// <summary>
      /// Crea una WorkItem asociada a un espacio (Space).

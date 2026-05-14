@@ -37,7 +37,6 @@
         <!-- Folders -->
         <Folder Include="Monitoring\Domain\Model\" />
         <Folder Include="Monitoring\Domain\Repositories\" />
-        <Folder Include="Monitoring\Domain\Services\" />
         <Folder Include="Monitoring\Infrastructure\Persistence\EFC\Repositories\" />
         <Folder Include="Payments\Infrastructure\Persistence\EFC\Configuration\Extensions\" />
         <Folder Include="User\Application\ACL\" />

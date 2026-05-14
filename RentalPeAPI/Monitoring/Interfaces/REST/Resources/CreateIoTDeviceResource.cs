@@ -27,5 +27,11 @@ public record CreateIoTDeviceResource(
     string? CustomMetricName,
 
     [property: JsonPropertyName("customUnit")]
-    string? CustomUnit
+    string? CustomUnit,
+
+    [property: JsonPropertyName("customMinThreshold")]
+    decimal? CustomMinThreshold,
+
+    [property: JsonPropertyName("customMaxThreshold")]
+    decimal? CustomMaxThreshold
 );

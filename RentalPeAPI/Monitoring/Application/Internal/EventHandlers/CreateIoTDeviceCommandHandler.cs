@@ -48,7 +48,9 @@ public class CreateIoTDeviceCommandHandler
             command.Name,
             command.SerialNumber ?? string.Empty,
             command.CustomMetricName,
-            command.CustomUnit
+            command.CustomUnit,
+            command.CustomMinThreshold,
+            command.CustomMaxThreshold
         );
 
         await _deviceRepository.AddAsync(device);

@@ -180,7 +180,6 @@ builder.Services.AddScoped<SpaceAppService>();
 builder.Services.AddScoped<ISpaceRepository, SpaceRepository>();
 
 // Monitoring
-builder.Services.AddScoped<IReadingRepository, ReadingRepository>();
 builder.Services.AddScoped<IWorkItemRepository, WorkItemRepository>();
 builder.Services.AddScoped<IIoTDeviceRepository, IoTDeviceRepository>();
 builder.Services.AddScoped<INotificationRepository, NotificationRepository>();

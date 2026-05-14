@@ -72,5 +72,21 @@ public class IoTDeviceConfiguration : IEntityTypeConfiguration<IoTDevice>
         builder.Property(d => d.IsOn)
             .HasColumnName("is_on")
             .IsRequired();
+        
+        // MinThreshold - Umbral mínimo de telemetría (propiedad privada)
+        builder.Property<decimal>("MinThreshold")
+            .HasColumnName("min_threshold")
+            .IsRequired();
+        
+        // MaxThreshold - Umbral máximo de telemetría (propiedad privada)
+        builder.Property<decimal>("MaxThreshold")
+            .HasColumnName("max_threshold")
+            .IsRequired();
+        
+        // IsInAlertState - Indica si el valor ha cruzado los umbrales (propiedad privada)
+        builder.Property<bool>("IsInAlertState")
+            .HasColumnName("is_in_alert_state")
+            .IsRequired()
+            .HasDefaultValue(false);
     }
 }
