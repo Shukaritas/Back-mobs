@@ -1,62 +1,72 @@
-﻿
-using System;
+﻿using System;
 
 namespace RentalPeAPI.Monitoring.Domain.Entities;
 
 /// <summary>
-/// Notificación de un evento en una obra (Space).
-/// Alineada con el modelo DDD, sin dependencias circulares hacia Property.
+/// Entidad de dominio Notification que representa una alerta automática generada
+/// ante hitos clave del negocio (aceptación de ofertas, tareas completadas, umbrales IoT).
+/// 
+/// Sigue los principios DDD con encapsulamiento strict y métodos de dominio.
 /// </summary>
 public class Notification
 {
-    public int Id { get; set; }
+    // PK con encapsulamiento strict
+    public long Id { get; private set; }
 
-    // Identificador del usuario que recibe la notificación (Guid from User BC)
-    public Guid UserId { get; set; }
+    // Identificador del usuario destinatario final de la alerta (Guid from User BC)
+    public Guid UserId { get; private set; }
 
-    // Referencia al espacio (Space) - reemplaza el obsoleto ProjectId
-    public long SpaceId { get; set; }
+    // Referencia a la obra/espacio asociado (Space)
+    public long SpaceId { get; private set; }
 
-    // Puede existir o no incidente asociado: por eso nullable
-    public int? IncidentId { get; set; }
+    // Título descriptivo de la alerta 
+    public string Title { get; private set; } = string.Empty;
 
-    // Destinatario textual (email, nombre, etc.) para lógica interna
-    public string Recipient { get; set; } = string.Empty;
+    // Mensaje detallado de la alerta
+    public string Message { get; private set; } = string.Empty;
 
-    // "message" en el JSON
-    public string Message { get; set; } = string.Empty;
+    // Estado de lectura de la notificación
+    public bool IsRead { get; private set; }
 
-    // Tipo de notificación interno
-    public string Type { get; set; } = "InApp"; 
+    // Fecha UTC de creación de la alerta
+    public DateTime CreatedAt { get; private set; }
 
-    // Estado interno
-    public string Status { get; set; } = "unread";
+    // Constructor privado para EF Core
+    private Notification() { }
 
-    // Fecha de creación
-    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
-
-    // Si más adelante tienes envío por mail/push, puedes usarlo
-    public DateTime? SentAt { get; set; }
-
-    public Notification() { }
-
-    // Ctor principal alineado con la nueva estructura
-    public Notification(Guid userId, long spaceId, string message,
-        int? incidentId = null,
-        string? recipient = null,
-        string type = "InApp",
-        string status = "unread")
+    /// <summary>
+    /// Constructor principal para crear una nueva notificación.
+    /// Encápsula la lógica de inicialización con valores por defecto.
+    /// </summary>
+    /// <param name="userId">ID del usuario destinatario (Guid)</param>
+    /// <param name="spaceId">ID de la obra/espacio asociado</param>
+    /// <param name="title">Título descriptivo de la alerta</param>
+    /// <param name="message">Mensaje detallado de la alerta</param>
+    public Notification(Guid userId, long spaceId, string title, string message)
     {
+        if (userId == Guid.Empty)
+            throw new ArgumentException("UserId debe ser un GUID válido", nameof(userId));
+        if (spaceId <= 0)
+            throw new ArgumentException("SpaceId debe ser > 0", nameof(spaceId));
+        if (string.IsNullOrWhiteSpace(title))
+            throw new ArgumentException("Title es obligatorio", nameof(title));
+        if (string.IsNullOrWhiteSpace(message))
+            throw new ArgumentException("Message es obligatorio", nameof(message));
+
         UserId = userId;
         SpaceId = spaceId;
+        Title = title;
         Message = message;
-
-        IncidentId = incidentId;
-        Recipient = recipient ?? string.Empty;
-        Type = type;
-        Status = status;
-
+        IsRead = false;
         CreatedAt = DateTime.UtcNow;
-        SentAt = null;
+    }
+
+    /// <summary>
+    /// Método de dominio para marcar la notificación como leída.
+    /// Cumple con la regla de negocio: una vez leída, permanece así.
+    /// </summary>
+    public void MarkAsRead()
+    {
+        IsRead = true;
     }
 }

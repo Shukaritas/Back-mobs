@@ -33,7 +33,7 @@ public class IoTDevice
     public string SerialNumber { get; private set; } = string.Empty;
     public string MetricName { get; private set; } = string.Empty;
     public string Unit { get; private set; } = string.Empty;
-    public double Value { get; private set; }
+    public decimal Value { get; private set; }
     public DateTime Timestamp { get; private set; }
     public bool IsOn { get; private set; }
     
@@ -170,6 +170,7 @@ public class IoTDevice
     /// Genera un valor de telemetría inteligente según el tipo de dispositivo.
     /// Implementa lógica realista con 85% de valores normales y 15% de picos extremos
     /// para simular comportamientos anómalos y probar alertas.
+    /// Todos los valores se generan como decimales con 2 cifras para mayor realismo.
     /// Solo se ejecuta si el dispositivo está encendido (IsOn = true).
     /// </summary>
     public void GenerateRandomValue()
@@ -182,19 +183,30 @@ public class IoTDevice
         // 15% genera valor extremo para forzar cruce de umbrales y probar alertas
         bool triggerAnomaly = Random.Shared.NextDouble() > 0.85;
 
+        // Generar valores decimales con 2 cifras usando NextDouble()
         Value = Type switch
         {
-            "HUMIDITY" => triggerAnomaly ? Random.Shared.Next(20, 85) : Random.Shared.Next(40, 65),
-            "TEMPERATURE" => triggerAnomaly ? Random.Shared.Next(10, 40) : Random.Shared.Next(18, 26),
-            "VOLTAGE" => triggerAnomaly ? Random.Shared.Next(180, 260) : Random.Shared.Next(215, 230),
-            "LOAD" => triggerAnomaly ? Random.Shared.Next(300, 450) : Random.Shared.Next(50, 250),
-            "AIR_QUALITY" => triggerAnomaly ? Random.Shared.Next(90, 150) : Random.Shared.Next(15, 50),
-            _ => Random.Shared.Next((int)MinThreshold - 10, (int)MaxThreshold + 10)
+            "HUMIDITY" => triggerAnomaly 
+                ? (decimal)Math.Round(20 + Random.Shared.NextDouble() * 65, 2)
+                : (decimal)Math.Round(40 + Random.Shared.NextDouble() * 25, 2),
+            "TEMPERATURE" => triggerAnomaly 
+                ? (decimal)Math.Round(10 + Random.Shared.NextDouble() * 30, 2)
+                : (decimal)Math.Round(18 + Random.Shared.NextDouble() * 8, 2),
+            "VOLTAGE" => triggerAnomaly 
+                ? (decimal)Math.Round(180 + Random.Shared.NextDouble() * 80, 2)
+                : (decimal)Math.Round(215 + Random.Shared.NextDouble() * 15, 2),
+            "LOAD" => triggerAnomaly 
+                ? (decimal)Math.Round(300 + Random.Shared.NextDouble() * 150, 2)
+                : (decimal)Math.Round(50 + Random.Shared.NextDouble() * 200, 2),
+            "AIR_QUALITY" => triggerAnomaly 
+                ? (decimal)Math.Round(90 + Random.Shared.NextDouble() * 60, 2)
+                : (decimal)Math.Round(15 + Random.Shared.NextDouble() * 35, 2),
+            _ => (decimal)Math.Round((double)MinThreshold - 10 + Random.Shared.NextDouble() * ((double)(MaxThreshold - MinThreshold) + 20), 2)
         };
 
         Timestamp = DateTime.UtcNow;
         
-        // Evaluar si se ha cruzado umbral (para implementaciones futuras de alertas)
+        // Evaluar si se ha cruzado umbral
         EvaluateThresholds();
     }
     
@@ -204,6 +216,32 @@ public class IoTDevice
     /// </summary>
     private void EvaluateThresholds()
     {
-        IsInAlertState = Value < (double)MinThreshold || Value > (double)MaxThreshold;
+        IsInAlertState = Value < MinThreshold || Value > MaxThreshold;
+    }
+
+    /// <summary>
+    /// Obtiene el estado actual de alerta del dispositivo.
+    /// Utilizado internamente para evaluar si se debe disparar una notificación.
+    /// </summary>
+    public bool GetIsInAlertState()
+    {
+        return IsInAlertState;
+    }
+
+    /// <summary>
+    /// Actualiza explícitamente el estado de alerta del dispositivo.
+    /// Utilizado para marcar el dispositivo en alerta tras detectar anomalía.
+    /// </summary>
+    public void UpdateAlertState(bool isInAlert)
+    {
+        IsInAlertState = isInAlert;
+    }
+
+    /// <summary>
+    /// Expone los umbrales para lógica de validación externa.
+    /// </summary>
+    public (decimal MinThreshold, decimal MaxThreshold) GetThresholds()
+    {
+        return (MinThreshold, MaxThreshold);
     }
 }

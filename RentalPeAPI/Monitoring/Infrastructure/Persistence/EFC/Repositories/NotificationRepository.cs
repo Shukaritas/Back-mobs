@@ -1,5 +1,4 @@
-﻿
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
@@ -12,6 +11,7 @@ namespace RentalPeAPI.Monitoring.Infrastructure.Persistence.EFC.Repositories;
 
 /// <summary>
 /// Repositorio EF Core para la entidad Notification.
+/// Implementa las operaciones de persistencia definidas en INotificationRepository.
 /// </summary>
 public class NotificationRepository : INotificationRepository
 {
@@ -27,7 +27,7 @@ public class NotificationRepository : INotificationRepository
         await _context.Notifications.AddAsync(notification);
     }
 
-    public async Task<Notification?> FindByIdAsync(int id)
+    public async Task<Notification?> FindByIdAsync(long id)
     {
         return await _context.Notifications.FindAsync(id);
     }
@@ -36,6 +36,15 @@ public class NotificationRepository : INotificationRepository
     {
         return await _context.Notifications
             .Where(n => n.SpaceId == spaceId)
+            .OrderByDescending(n => n.CreatedAt)
+            .ToListAsync();
+    }
+
+    public async Task<IEnumerable<Notification>> ListByUserIdAsync(Guid userId)
+    {
+        return await _context.Notifications
+            .Where(n => n.UserId == userId)
+            .OrderByDescending(n => n.CreatedAt)
             .ToListAsync();
     }
 }

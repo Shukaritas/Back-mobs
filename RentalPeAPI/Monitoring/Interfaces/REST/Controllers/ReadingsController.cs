@@ -4,8 +4,10 @@ using System.Linq;
 using System.Reflection;
 using System.Security.Claims;
 using System.Threading.Tasks;
+using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using RentalPeAPI.Monitoring.Application.Internal.CommandServices;
 using RentalPeAPI.Monitoring.Domain.Repositories;
 using RentalPeAPI.Monitoring.Interfaces.REST.Resources;
 using RentalPeAPI.Shared.Domain.Repositories;
@@ -15,6 +17,7 @@ namespace RentalPeAPI.Monitoring.Interfaces.REST.Controllers;
 /// <summary>
 /// Controlador refactorizado para gestionar lecturas de telemetría de dispositivos IoT.
 /// Ya no usa tabla de Readings. Consulta directamente los IoTDevices y simula telemetría.
+/// PASO 5C: Despacha notificaciones automáticamente ante anomalías telemétricas.
 /// </summary>
 [ApiController]
 [Route("api/v1/monitoring/[controller]")]
@@ -24,11 +27,13 @@ public class ReadingsController : ControllerBase
 {
     private readonly IIoTDeviceRepository _deviceRepository;
     private readonly IUnitOfWork _unitOfWork;
+    private readonly IMediator _mediator;
 
-    public ReadingsController(IIoTDeviceRepository deviceRepository, IUnitOfWork unitOfWork)
+    public ReadingsController(IIoTDeviceRepository deviceRepository, IUnitOfWork unitOfWork, IMediator mediator)
     {
         _deviceRepository = deviceRepository;
         _unitOfWork = unitOfWork;
+        _mediator = mediator;
     }
 
     /// <summary>
@@ -50,9 +55,45 @@ public class ReadingsController : ControllerBase
     }
 
     /// <summary>
+    /// Método privado helper para validar umbrales y disparar notificación automática
+    /// si se detecta una anomalía telemetría (PASO 5C).
+    /// 
+    /// Lógica simplificada:
+    /// - Si el valor excede umbrales (is_in_alert_state = 1), dispara notificación directamente
+    /// - Sin validar estado previo, se envía cada vez que se detecta anomalía
+    /// </summary>
+    private async Task ValidateThresholdsAndDispatchNotificationAsync(
+        RentalPeAPI.Monitoring.Domain.Model.Aggregates.IoTDevice device)
+    {
+        var (minThreshold, maxThreshold) = device.GetThresholds();
+        bool isCurrentlyInAlert = device.Value < minThreshold || device.Value > maxThreshold;
+
+        // Si está en alerta, disparar notificación directamente (sin validar estado previo)
+        if (isCurrentlyInAlert)
+        {
+            device.UpdateAlertState(true);
+            await _unitOfWork.CompleteAsync();
+
+            // Despachar notificación de alerta crítica con valores formateados a 2 decimales
+            var notificationCommand = new CreateNotificationCommand(
+                device.CreatedByUserId,
+                device.SpaceId,
+                $" Alerta Crítica IoT: {device.Name}",
+                $"El sensor '{device.Name}' ha detectado una lectura anómala. " +
+                $"Métrica: {device.MetricName}, Valor: {device.Value:F2} {device.Unit}, " +
+                $"Rango permitido: {minThreshold:F2} - {maxThreshold:F2}."
+            );
+            await _mediator.Send(notificationCommand);
+        }
+    }
+
+
+
+
+    /// <summary>
     /// GET: /api/v1/monitoring/readings/device/{deviceId}
     /// Devuelve el detalle completo de un dispositivo específico con telemetría, umbrales y estado de alerta.
-    /// Antes de retornar, invoca GenerateRandomValue() y persiste los cambios.
+    /// Antes de retornar, invoca GenerateRandomValue() y valida umbrales para disparar alertas automáticas.
     /// </summary>
     [HttpGet("device/{deviceId:long}")]
     [Authorize(Roles = "Homeowner,Remodeler")]
@@ -75,6 +116,9 @@ public class ReadingsController : ControllerBase
 
             // Invocar simulación de telemetría
             device.GenerateRandomValue();
+
+            // PASO 5C: Validar umbrales y disparar notificación automática si es necesario
+            await ValidateThresholdsAndDispatchNotificationAsync(device);
 
             // Persistir cambios
             await _unitOfWork.CompleteAsync();
@@ -111,7 +155,7 @@ public class ReadingsController : ControllerBase
     /// <summary>
     /// GET: /api/v1/monitoring/readings/space/{spaceId}
     /// Devuelve la lista de detalles de todos los dispositivos de un espacio con telemetría, umbrales y estado de alerta.
-    /// Antes de retornar, invoca GenerateRandomValue() para cada dispositivo y persiste los cambios.
+    /// Valida umbrales y dispara notificaciones automáticas ante anomalías (PASO 5C).
     /// </summary>
     [HttpGet("space/{spaceId:long}")]
     [Authorize(Roles = "Homeowner,Remodeler")]
@@ -136,6 +180,8 @@ public class ReadingsController : ControllerBase
             foreach (var device in devices)
             {
                 device.GenerateRandomValue();
+                // PASO 5C: Validar umbrales y disparar notificación automática si es necesario
+                await ValidateThresholdsAndDispatchNotificationAsync(device);
             }
 
             // Persistir cambios
@@ -173,7 +219,7 @@ public class ReadingsController : ControllerBase
     /// <summary>
     /// GET: /api/v1/monitoring/readings/user
     /// Extrae el ID del usuario del token JWT y devuelve los detalles de todos sus dispositivos con telemetría, umbrales y estado de alerta.
-    /// Antes de retornar, invoca GenerateRandomValue() para cada dispositivo y persiste los cambios.
+    /// Valida umbrales y dispara notificaciones automáticas ante anomalías (PASO 5C).
     /// </summary>
     [HttpGet("user")]
     [Authorize(Roles = "Homeowner,Remodeler")]
@@ -198,6 +244,8 @@ public class ReadingsController : ControllerBase
             foreach (var device in devices)
             {
                 device.GenerateRandomValue();
+                // PASO 5C: Validar umbrales y disparar notificación automática si es necesario
+                await ValidateThresholdsAndDispatchNotificationAsync(device);
             }
 
             // Persistir cambios

@@ -5,6 +5,8 @@ using RentalPeAPI.Property.Domain.Aggregates;
 using RentalPeAPI.Property.Domain.Aggregates.Enums;
 using RentalPeAPI.Property.Domain.Repositories;
 using RentalPeAPI.Shared.Domain.Repositories;
+using MediatR;
+using RentalPeAPI.Monitoring.Application.Internal.CommandServices;
 
 namespace RentalPeAPI.Property.Application.Services;
 
@@ -12,11 +14,13 @@ public class SpaceAppService
 {
     private readonly ISpaceRepository _spaceRepository;
     private readonly IUnitOfWork _unitOfWork;
+    private readonly IMediator _mediator;
 
-    public SpaceAppService(ISpaceRepository spaceRepository, IUnitOfWork unitOfWork)
+    public SpaceAppService(ISpaceRepository spaceRepository, IUnitOfWork unitOfWork, IMediator mediator)
     {
         _spaceRepository = spaceRepository;
         _unitOfWork = unitOfWork;
+        _mediator = mediator;
     }
 
     public async Task<SpaceDto> CreateSpaceAsync(CreateSpaceCommand command)
@@ -71,6 +75,16 @@ public class SpaceAppService
 
         space.AcceptProject(command.RemodelerId);
         await _unitOfWork.CompleteAsync();
+
+        // PASO 5A: Despacho automático de notificación al homeowner (creador del espacio)
+        // Alerta reactiva: "Proyecto Aceptado"
+        var notificationCommand = new CreateNotificationCommand(
+            space.HomeownerId,
+            space.Id,
+            "Proyecto Aceptado",
+            "El remodelador ha aceptado tu solicitud para el espacio. La obra está lista para iniciar."
+        );
+        await _mediator.Send(notificationCommand);
 
         return ToDto(space);
     }

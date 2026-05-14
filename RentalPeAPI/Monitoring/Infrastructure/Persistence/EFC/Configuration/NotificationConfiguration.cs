@@ -6,7 +6,7 @@ namespace RentalPeAPI.Monitoring.Infrastructure.Persistence.EFC.Configuration;
 
 /// <summary>
 /// Configuración de Entity Framework Core para la entidad Notification.
-/// Alineada con SpaceId en lugar del obsoleto ProjectId.
+/// Mapea correctamente las columnas de base de datos según el modelo DDD refactorizado.
 /// </summary>
 public class NotificationConfiguration : IEntityTypeConfiguration<Notification>
 {
@@ -14,62 +14,57 @@ public class NotificationConfiguration : IEntityTypeConfiguration<Notification>
     {
         builder.ToTable("notifications");
 
-        // PK
+        // PK: long en lugar de int
         builder.HasKey(n => n.Id);
 
         builder.Property(n => n.Id)
             .HasColumnName("id")
             .IsRequired();
 
-        // FK a User (del lado DDD) -> "user_id"
+        // FK a User (destinatario de la alerta)
         builder.Property(n => n.UserId)
             .HasColumnName("user_id")
             .IsRequired();
 
-        // FK a Space (reemplaza el obsoleto project_id) -> "space_id"
+        // FK a Space (obra asociada)
         builder.Property(n => n.SpaceId)
             .HasColumnName("space_id")
             .IsRequired();
 
-        // IncidentId puede ser null (no todas las notificaciones vienen de un incidente)
-        builder.Property(n => n.IncidentId)
-            .HasColumnName("incident_id")
-            .IsRequired(false);
+        // Título descriptivo de la alerta
+        builder.Property(n => n.Title)
+            .HasColumnName("title")
+            .HasMaxLength(255)
+            .IsRequired();
 
-        // Recipient es más interno, lo dejamos opcional
-        builder.Property(n => n.Recipient)
-            .HasColumnName("recipient")
-            .HasMaxLength(150)
-            .IsRequired(false);
-
-        // "message"
+        // Mensaje detallado de la alerta
         builder.Property(n => n.Message)
             .HasColumnName("message")
             .HasMaxLength(1000)
             .IsRequired();
 
-        builder.Property(n => n.Type)
-            .HasColumnName("type")
-            .HasMaxLength(20)
+        // Estado de lectura (bool en lugar de string "unread"/"read")
+        builder.Property(n => n.IsRead)
+            .HasColumnName("is_read")
+            .HasDefaultValue(false)
             .IsRequired();
 
-        builder.Property(n => n.Status)
-            .HasColumnName("status")
-            .HasMaxLength(20)
-            .IsRequired();
-
-        // "createdAt"
+        // Fecha UTC de creación
         builder.Property(n => n.CreatedAt)
             .HasColumnName("created_at")
             .IsRequired();
 
-        builder.Property(n => n.SentAt)
-            .HasColumnName("sent_at")
-            .IsRequired(false);
+        // Índices para optimización de consultas
+        // Índice compuesto: búsqueda rápida de notificaciones por usuario
+        builder.HasIndex(n => n.UserId)
+            .HasDatabaseName("idx_notifications_user_id");
 
-        // Índices
-        builder.HasIndex(n => n.SpaceId);
-        builder.HasIndex(n => n.UserId);
-        builder.HasIndex(n => n.IncidentId);
+        // Índice para búsquedas por espacio
+        builder.HasIndex(n => n.SpaceId)
+            .HasDatabaseName("idx_notifications_space_id");
+
+        // Índice compuesto para casos de uso comunes: notificaciones no leídas de un usuario
+        builder.HasIndex(n => new { n.UserId, n.IsRead })
+            .HasDatabaseName("idx_notifications_user_unread");
     }
 }

@@ -7,16 +7,22 @@ using System.Threading.Tasks;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using RentalPeAPI.Monitoring.Application.Internal.CommandServices;
 using RentalPeAPI.Monitoring.Application.Internal.QueryServices;
 using RentalPeAPI.Monitoring.Interfaces.REST.Resources;
 
 namespace RentalPeAPI.Monitoring.Interfaces.REST.Controllers;
 
 /// <summary>
-/// Controlador para el acceso a notificaciones de espacios (Spaces).
+/// Controlador para gestionar notificaciones reactivas del sistema.
+/// Expone endpoints para leer la bandeja de alertas y marcar como leídas.
+/// 
+/// NOTA: No hay endpoints POST/DELETE públicos. Las notificaciones se generan
+/// de forma 100% automática y reactiva ante hitos del negocio.
 /// </summary>
 [ApiController]
-[Route("api/v1/monitoring/[controller]")] // Ruta: /api/v1/monitoring/notifications
+[Route("api/v1/monitoring/[controller]")]
+[Tags("Notifications")]
 [Authorize] // ← CRÍTICO: Requiere autenticación JWT
 public class NotificationsController : ControllerBase
 {
@@ -28,30 +34,88 @@ public class NotificationsController : ControllerBase
     }
 
     /// <summary>
-    /// GET: Obtiene el historial de notificaciones para un espacio específico.
-    /// Solo accesible para usuarios autenticados.
+    /// GET: /api/v1/monitoring/notifications/user
+    /// Obtiene todas las notificaciones del usuario autenticado, ordenadas por fecha descendente.
+    /// Extrae de forma segura el ID del usuario desde el token JWT (ClaimTypes.NameIdentifier).
     /// </summary>
-    [HttpGet("space/{spaceId:long}")]
+    [HttpGet("user")]
     [Authorize(Roles = "Homeowner,Remodeler")]
-    public async Task<IActionResult> ListNotificationsBySpace(long spaceId)
+    [ProducesResponseType(200)]
+    [ProducesResponseType(401)]
+    [ProducesResponseType(404)]
+    public async Task<IActionResult> GetUserNotifications()
     {
-        // Validar que el usuario autenticado tenga un NameIdentifier válido
-        var userIdClaim = User.FindFirstValue(System.Security.Claims.ClaimTypes.NameIdentifier);
-        if (string.IsNullOrEmpty(userIdClaim))
-            return Unauthorized(new { error = "Token JWT inválido o sin NameIdentifier." });
+        // Extrae el ID del usuario del token JWT de forma segura
+        var userIdClaim = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        if (string.IsNullOrEmpty(userIdClaim) || !Guid.TryParse(userIdClaim, out var userId))
+            return Unauthorized(new { error = "Token JWT inválido o sin NameIdentifier válido." });
 
-        var query = new ListNotificationsQuery(spaceId);
-        var notifications = await _mediator.Send(query);
+        try
+        {
+            // Ejecutar query para obtener notificaciones del usuario
+            var query = new GetNotificationsByUserIdQuery(userId);
+            var notifications = await _mediator.Send(query);
 
-        // Mapear entidad de dominio -> DTO para el front
-        var resources = notifications.Select(n => new NotificationResource(
-            n.Id,
-            n.UserId,
-            n.SpaceId,
-            n.Message,
-            n.CreatedAt
-        ));
+            // Validar que hay notificaciones
+            if (!notifications.Any())
+                return Ok(new List<NotificationResource>()); // Retornar lista vacía
 
-        return Ok(resources);
+            // Mapear entidades de dominio a DTOs de presentación
+            var resources = notifications.Select(n => new NotificationResource(
+                n.Id,
+                n.SpaceId,
+                n.Title,
+                n.Message,
+                n.IsRead,
+                n.CreatedAt
+            )).ToList();
+
+            return Ok(resources);
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { error = "Error al obtener notificaciones del usuario.", details = ex.Message });
+        }
+    }
+
+    /// <summary>
+    /// PUT: /api/v1/monitoring/notifications/{id:long}/read
+    /// Marca una notificación como leída.
+    /// Valida que el usuario solicitante sea el destinatario de la notificación (protección de seguridad).
+    /// </summary>
+    [HttpPut("{id:long}/read")]
+    [Authorize(Roles = "Homeowner,Remodeler")]
+    [ProducesResponseType(200)]
+    [ProducesResponseType(401)]
+    [ProducesResponseType(403)]
+    [ProducesResponseType(404)]
+    public async Task<IActionResult> MarkNotificationAsRead(long id)
+    {
+        // Extrae el ID del usuario del token JWT de forma segura
+        var userIdClaim = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        if (string.IsNullOrEmpty(userIdClaim) || !Guid.TryParse(userIdClaim, out var userId))
+            return Unauthorized(new { error = "Token JWT inválido o sin NameIdentifier válido." });
+
+        try
+        {
+            // Despachar comando para marcar como leída
+            var command = new MarkNotificationAsReadCommand(id, userId);
+            await _mediator.Send(command);
+
+            return Ok(new { message = "Notificación marcada como leída." });
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            return Forbid();
+        }
+        catch (KeyNotFoundException)
+        {
+            return NotFound(new { error = $"Notificación con ID {id} no encontrada." });
+        }
+        catch (Exception)
+        {
+            return StatusCode(500, new { error = "Error al marcar notificación como leída." });
+        }
     }
 }
+

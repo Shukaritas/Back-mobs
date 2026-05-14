@@ -393,7 +393,7 @@ public class WorkItemController : ControllerBase
 
         try
         {
-            // Obtener la tarea
+            // Obtener la tarea para validaciones
             var workItem = await _workItemRepository.FindByIdAsync(id);
             if (workItem == null)
                 return NotFound(new { error = $"WorkItem con ID {id} no encontrado." });
@@ -406,33 +406,39 @@ public class WorkItemController : ControllerBase
             // Validar que el usuario sea el Remodeler EXACTO asignado al Space
             if (space.RemodelerId != requestingUserId)
                 return Forbid();
+            
+            // Esto asegura que se ejecute el handler completo y se disparen notificaciones
+            var finalStatus = !string.IsNullOrWhiteSpace(resource.Status) ? resource.Status : workItem.Status;
+            
+            var command = new UpdateWorkItemStatusCommand(id, finalStatus, requestingUserId);
+            var updatedWorkItem = await _mediator.Send(command);
 
-            // Aplicar cambios solo a progreso
-            if (!string.IsNullOrWhiteSpace(resource.Status) ||
-                resource.PlannedStartDate.HasValue ||
-                resource.PlannedEndDate.HasValue)
+            if (updatedWorkItem == null)
+                return NotFound(new { error = $"No se pudo actualizar la tarea {id}." });
+
+            // Aplicar cambios de fechas si se proporcionan (después de validación en el agregado)
+            if (resource.PlannedStartDate.HasValue || resource.PlannedEndDate.HasValue)
             {
-                string finalStatus = !string.IsNullOrWhiteSpace(resource.Status) ? resource.Status : workItem.Status;
-                DateTime? finalStartDate = resource.PlannedStartDate ?? workItem.PlannedStartDate;
-                DateTime? finalEndDate = resource.PlannedEndDate ?? workItem.PlannedEndDate;
-
-                workItem.UpdateProgress(finalStatus, finalStartDate, finalEndDate);
+                DateTime? finalStartDate = resource.PlannedStartDate ?? updatedWorkItem.PlannedStartDate;
+                DateTime? finalEndDate = resource.PlannedEndDate ?? updatedWorkItem.PlannedEndDate;
+                
+                updatedWorkItem.UpdateProgress(updatedWorkItem.Status, finalStartDate, finalEndDate);
                 await _unitOfWork.CompleteAsync();
             }
 
             // Transformar la entidad actualizada a WorkItemResource
             var workItemResource = new WorkItemResource(
-                workItem.Id,
-                workItem.SpaceId,
-                workItem.CreatedByUserId,
-                workItem.Title,
-                workItem.Description,
-                workItem.PhotoUrl,
-                workItem.PlannedStartDate,
-                workItem.PlannedEndDate,
-                workItem.Status,
-                workItem.CreatedAt,
-                workItem.CompletedAt
+                updatedWorkItem.Id,
+                updatedWorkItem.SpaceId,
+                updatedWorkItem.CreatedByUserId,
+                updatedWorkItem.Title,
+                updatedWorkItem.Description,
+                updatedWorkItem.PhotoUrl,
+                updatedWorkItem.PlannedStartDate,
+                updatedWorkItem.PlannedEndDate,
+                updatedWorkItem.Status,
+                updatedWorkItem.CreatedAt,
+                updatedWorkItem.CompletedAt
             );
 
             return Ok(workItemResource);
