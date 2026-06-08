@@ -242,4 +242,43 @@ public class IoTDevicesController : ControllerBase
 
         return Ok(resources);
     }
+
+    /// <summary>
+    /// DELETE: api/v1/monitoring/iot-devices/{id}
+    /// Elimina un dispositivo IoT. Solo el creador puede eliminarlo.
+    /// Solo accesible para usuarios autenticados.
+    /// </summary>
+    [HttpDelete("{id:long}")]
+    [Authorize(Roles = "Homeowner,Remodeler")]
+    [ProducesResponseType(204)]
+    [ProducesResponseType(401)]
+    [ProducesResponseType(403)]
+    [ProducesResponseType(404)]
+    public async Task<IActionResult> DeleteDevice(long id)
+    {
+        // Validar que el usuario autenticado tenga un NameIdentifier válido
+        var userIdClaim = User.FindFirstValue(System.Security.Claims.ClaimTypes.NameIdentifier);
+        if (string.IsNullOrEmpty(userIdClaim) || !Guid.TryParse(userIdClaim, out var requestingUserId))
+            return Unauthorized(new { error = "Token JWT inválido o sin NameIdentifier." });
+
+        try
+        {
+            var command = new DeleteIoTDeviceCommand(id, requestingUserId);
+            await _mediator.Send(command);
+
+            return NoContent();
+        }
+        catch (KeyNotFoundException)
+        {
+            return NotFound(new { error = $"Dispositivo con ID {id} no encontrado." });
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            return Forbid();
+        }
+        catch (Exception ex)
+        {
+            return BadRequest(new { error = ex.Message });
+        }
+    }
 }

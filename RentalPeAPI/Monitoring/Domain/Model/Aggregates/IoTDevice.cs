@@ -167,6 +167,15 @@ public class IoTDevice
     }
 
     /// <summary>
+    /// Apaga el dispositivo sin generar telemetría.
+    /// Método de dominio simple para desactivar dispositivos de forma automática.
+    /// </summary>
+    public void TurnOff()
+    {
+        IsOn = false;
+    }
+
+    /// <summary>
     /// Genera un valor de telemetría inteligente según el tipo de dispositivo.
     /// Implementa lógica realista con 85% de valores normales y 15% de picos extremos
     /// para simular comportamientos anómalos y probar alertas.

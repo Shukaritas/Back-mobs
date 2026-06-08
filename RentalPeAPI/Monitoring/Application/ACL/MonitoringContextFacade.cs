@@ -8,6 +8,8 @@ using CreateIoTDeviceCommand =
     RentalPeAPI.Monitoring.Application.Internal.CommandServices.CreateIoTDeviceCommand;
 using CreateWorkItemCommand =
     RentalPeAPI.Monitoring.Application.Internal.CommandServices.CreateWorkItemCommand;
+using TurnOffDevicesBySpaceIdCommand =
+    RentalPeAPI.Monitoring.Application.Internal.CommandServices.TurnOffDevicesBySpaceIdCommand;
 
 /// <summary>
 /// Facade Anti-Corruption Layer para Monitoring BC.
@@ -54,7 +56,6 @@ public class MonitoringContextFacade : IMonitoringContextFacade
         return (int)device.Id;
     }
 
-
      /// <summary>
      /// Crea una WorkItem asociada a un espacio (Space).
      /// </summary>
@@ -79,5 +80,15 @@ public class MonitoringContextFacade : IMonitoringContextFacade
 
          var workItemId = await _mediator.Send(command);
          return workItemId;
+     }
+
+     /// <summary>
+     /// Apaga automáticamente todos los dispositivos IoT vinculados a un espacio.
+     /// Se utiliza cuando un proyecto se cancela para optimizar recursos.
+     /// </summary>
+     public async Task DisableAllDevicesForSpaceAsync(long spaceId)
+     {
+         var command = new TurnOffDevicesBySpaceIdCommand(spaceId);
+         await _mediator.Send(command);
      }
 }

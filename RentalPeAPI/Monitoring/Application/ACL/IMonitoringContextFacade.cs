@@ -33,4 +33,11 @@ public interface IMonitoringContextFacade
         string? photoUrl = null,
         DateTime? plannedStartDate = null,
         DateTime? plannedEndDate = null);
+
+    /// <summary>
+    /// Apaga automáticamente todos los dispositivos IoT vinculados a un espacio.
+    /// Se utiliza cuando un proyecto se cancela para optimizar recursos.
+    /// </summary>
+    Task DisableAllDevicesForSpaceAsync(long spaceId);
 }
+

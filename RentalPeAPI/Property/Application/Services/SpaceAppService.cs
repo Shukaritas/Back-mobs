@@ -7,6 +7,7 @@ using RentalPeAPI.Property.Domain.Repositories;
 using RentalPeAPI.Shared.Domain.Repositories;
 using MediatR;
 using RentalPeAPI.Monitoring.Application.Internal.CommandServices;
+using RentalPeAPI.Monitoring.Application.ACL;
 
 namespace RentalPeAPI.Property.Application.Services;
 
@@ -15,12 +16,18 @@ public class SpaceAppService
     private readonly ISpaceRepository _spaceRepository;
     private readonly IUnitOfWork _unitOfWork;
     private readonly IMediator _mediator;
+    private readonly IMonitoringContextFacade _monitoringFacade;
 
-    public SpaceAppService(ISpaceRepository spaceRepository, IUnitOfWork unitOfWork, IMediator mediator)
+    public SpaceAppService(
+        ISpaceRepository spaceRepository,
+        IUnitOfWork unitOfWork,
+        IMediator mediator,
+        IMonitoringContextFacade monitoringFacade)
     {
         _spaceRepository = spaceRepository;
         _unitOfWork = unitOfWork;
         _mediator = mediator;
+        _monitoringFacade = monitoringFacade;
     }
 
     public async Task<SpaceDto> CreateSpaceAsync(CreateSpaceCommand command)
@@ -173,6 +180,10 @@ public class SpaceAppService
             "Tu proyecto ha sido cancelado según lo solicitado."
         );
         await _mediator.Send(notificationCommand);
+
+        // 🔌 Apagar automáticamente todos los dispositivos IoT del espacio cancelado
+        // Esto optimiza recursos al desactivar sensores cuando el proyecto ya no está activo
+        await _monitoringFacade.DisableAllDevicesForSpaceAsync(command.SpaceId);
 
         return ToDto(space);
     }

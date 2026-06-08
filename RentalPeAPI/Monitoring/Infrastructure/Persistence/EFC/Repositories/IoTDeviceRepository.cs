@@ -37,4 +37,9 @@ public class IoTDeviceRepository : IIoTDeviceRepository
             .Where(d => d.CreatedByUserId == createdByUserId)
             .ToListAsync();
     }
+
+    public void Remove(IoTDevice device)
+    {
+        _context.IoTDevices.Remove(device);
+    }
 }
