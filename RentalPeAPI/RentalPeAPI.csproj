@@ -26,8 +26,12 @@
         <PackageReference Include="Microsoft.EntityFrameworkCore.Relational" Version="9.0.11" />
         <PackageReference Include="Microsoft.EntityFrameworkCore.Relational.Design" Version="1.1.6" />
         <PackageReference Include="Microsoft.IdentityModel.Tokens" Version="8.14.0" />
+        <PackageReference Include="Microsoft.NET.Test.Sdk" Version="18.5.1" />
         <PackageReference Include="MySql.EntityFrameworkCore" Version="9.0.9" />
         <PackageReference Include="Pomelo.EntityFrameworkCore.MySql" Version="9.0.0" />
+        <PackageReference Include="SpecFlow" Version="4.0.31-beta" />
+        <PackageReference Include="SpecFlow.Tools.MsBuild.Generation" Version="4.0.31-beta" />
+        <PackageReference Include="SpecFlow.xUnit" Version="4.0.31-beta" />
         <PackageReference Include="Swashbuckle.AspNetCore" Version="9.0.6" />
         <PackageReference Include="Swashbuckle.AspNetCore.Annotations" Version="9.0.6" />
         <PackageReference Include="System.IdentityModel.Tokens.Jwt" Version="8.14.0" />

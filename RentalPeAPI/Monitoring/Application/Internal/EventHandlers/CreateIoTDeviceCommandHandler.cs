@@ -10,6 +10,11 @@ namespace RentalPeAPI.Monitoring.Application.Internal.EventHandlers;
 /// <summary>
 /// Handler para crear un dispositivo IoT con validación de ACL y autocompletado de métricas.
 /// Implementa regla estricta: Solo se puede crear dispositivo si el espacio existe y HasIot = true.
+/// 
+/// REGLA DE CONGELAMIENTO DIFERENCIADO PARA IOTDEVICE:
+/// - Si el estado del espacio es nulo o "Cancelled", lanza excepción.
+/// - Los sensores NO se congelan si está en "Finished" (COMPLETED).
+/// - Los propietarios pueden seguir monitoreando sus casas finalizadas.
 /// </summary>
 public class CreateIoTDeviceCommandHandler
     : IRequestHandler<CreateIoTDeviceCommand, IoTDevice>
@@ -38,6 +43,17 @@ public class CreateIoTDeviceCommandHandler
         {
             throw new InvalidOperationException(
                 $"El espacio con ID {command.SpaceId} no existe o no tiene tecnología IoT habilitada.");
+        }
+
+        // ===== VALIDACIÓN DE CONGELAMIENTO PARA SENSORES IoT =====
+        // Obtener el estado del espacio desde la fachada ACL
+        var spaceStatus = await _propertyFacade.GetSpaceStatusAsync(command.SpaceId);
+        
+        // REGLA ESTRICTA: Si el estado es nulo o "Cancelled", denegar acción
+        if (string.IsNullOrEmpty(spaceStatus) || spaceStatus == "Cancelled")
+        {
+            throw new InvalidOperationException(
+                "Acción denegada: El espacio ha sido cancelado.");
         }
 
         // Crear el dispositivo con la lógica de autocompletado de métricas

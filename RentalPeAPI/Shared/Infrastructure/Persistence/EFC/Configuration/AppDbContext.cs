@@ -64,7 +64,17 @@ public class AppDbContext(DbContextOptions options) : DbContext(options)
         builder.ApplyConfiguration(new IoTDeviceConfiguration());
         builder.ApplyConfiguration(new WorkItemConfiguration());
         builder.ApplyConfiguration(new NotificationConfiguration());
-
+        
+        foreach (var entityType in builder.Model.GetEntityTypes())
+        {
+            foreach (var property in entityType.GetProperties())
+            {
+                if (property.ClrType == typeof(Guid) || property.ClrType == typeof(Guid?))
+                {
+                    property.SetCollation("utf8mb4_general_ci");
+                }
+            }
+        }
 
         // Configuración compartida
         builder.UseSnakeCaseNamingConvention();

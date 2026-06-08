@@ -118,7 +118,63 @@ public class SpaceAppService
     public async Task<IEnumerable<SpaceDto>> ListSpacesAsync(ListSpacesQuery query)
     {
         var spaces = await _spaceRepository.ListAsync();
+        
+        // Filtrar por OwnerId si se proporciona
+        if (query.OwnerId.HasValue)
+        {
+            spaces = spaces.Where(s => s.HomeownerId == query.OwnerId.Value).ToList();
+        }
+        
+        // Filtrar por Status si se proporciona
+        if (!string.IsNullOrEmpty(query.Status))
+        {
+            if (Enum.TryParse<SpaceStatus>(query.Status, true, out var statusEnum))
+            {
+                spaces = spaces.Where(s => s.Status == statusEnum).ToList();
+            }
+        }
+        
         return spaces.Select(ToDto).ToList();
+    }
+
+    public async Task<SpaceDto?> CompleteProjectAsync(CompleteSpaceCommand command)
+    {
+        var space = await _spaceRepository.FindByIdAsync(command.SpaceId);
+        if (space == null) return null;
+
+        space.CompleteProject(command.RequestingUserId);
+        await _unitOfWork.CompleteAsync();
+
+        // Despacho automático de notificación
+        var notificationCommand = new CreateNotificationCommand(
+            space.HomeownerId,
+            space.Id,
+            "Proyecto Completado",
+            "Tu proyecto ha sido marcado como completado. ¡Gracias por usar RentalPe!"
+        );
+        await _mediator.Send(notificationCommand);
+
+        return ToDto(space);
+    }
+
+    public async Task<SpaceDto?> CancelProjectAsync(CancelSpaceCommand command)
+    {
+        var space = await _spaceRepository.FindByIdAsync(command.SpaceId);
+        if (space == null) return null;
+
+        space.CancelProject(command.RequestingUserId);
+        await _unitOfWork.CompleteAsync();
+
+        // Despacho automático de notificación
+        var notificationCommand = new CreateNotificationCommand(
+            space.HomeownerId,
+            space.Id,
+            "Proyecto Cancelado",
+            "Tu proyecto ha sido cancelado según lo solicitado."
+        );
+        await _mediator.Send(notificationCommand);
+
+        return ToDto(space);
     }
 
     private static SpaceDto ToDto(Space space)

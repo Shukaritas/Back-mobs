@@ -2,12 +2,12 @@
 
 public class ListSpacesQuery
 {
-    public int? OwnerId { get; set; }
-    public string? Type { get; set; }
+    public Guid? OwnerId { get; set; }
+    public string? Status { get; set; }
 
-    public ListSpacesQuery(int? ownerId = null, string? type = null)
+    public ListSpacesQuery(Guid? ownerId = null, string? status = null)
     {
         OwnerId = ownerId;
-        Type = type;
+        Status = status;
     }
 }

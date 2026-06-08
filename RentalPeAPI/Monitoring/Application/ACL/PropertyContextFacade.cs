@@ -23,5 +23,15 @@ public class PropertyContextFacade : IPropertyContextFacade
         var space = await _spaceRepository.FindByIdAsync(spaceId);
         return space != null && space.HasIot;
     }
+
+    /// <summary>
+    /// Obtiene el estado actual de un espacio como string.
+    /// </summary>
+    public async Task<string?> GetSpaceStatusAsync(long spaceId)
+    {
+        var space = await _spaceRepository.FindByIdAsync(spaceId);
+        return space?.Status.ToString();
+    }
 }
+
 

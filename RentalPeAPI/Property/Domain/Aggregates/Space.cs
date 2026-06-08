@@ -134,6 +134,40 @@ public class Space
     }
 
     /// <summary>
+    /// Marca el espacio como completado (finalizado) por el Homeowner.
+    /// Solo se puede completar desde estado Accepted.
+    /// El requestingUserId debe ser el propietario del espacio.
+    /// </summary>
+    public void CompleteProject(Guid requestingUserId)
+    {
+        if (requestingUserId == Guid.Empty)
+            throw new ArgumentException("El ID del usuario solicitante no puede estar vacío.", nameof(requestingUserId));
+        if (requestingUserId != HomeownerId)
+            throw new InvalidOperationException("Solo el propietario del espacio puede completar el proyecto.");
+        if (Status != SpaceStatus.Accepted)
+            throw new InvalidOperationException("Solo se pueden completar espacios en estado Accepted.");
+        
+        Status = SpaceStatus.Finished;
+    }
+
+    /// <summary>
+    /// Cancela el espacio por el Homeowner.
+    /// Solo se puede cancelar desde estado Pending (Published).
+    /// El requestingUserId debe ser el propietario del espacio.
+    /// </summary>
+    public void CancelProject(Guid requestingUserId)
+    {
+        if (requestingUserId == Guid.Empty)
+            throw new ArgumentException("El ID del usuario solicitante no puede estar vacío.", nameof(requestingUserId));
+        if (requestingUserId != HomeownerId)
+            throw new InvalidOperationException("Solo el propietario del espacio puede cancelar el proyecto.");
+        if (Status != SpaceStatus.Published)
+            throw new InvalidOperationException("Solo se pueden cancelar espacios en estado Published.");
+        
+        Status = SpaceStatus.Cancelled;
+    }
+
+    /// <summary>
     /// Actualiza las imágenes del espacio.
     /// </summary>
     public void UpdateImages(IEnumerable<string> newImages)

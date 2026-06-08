@@ -12,5 +12,14 @@ public interface IPropertyContextFacade
     /// <param name="spaceId">ID del espacio a validar</param>
     /// <returns>true si el espacio existe y HasIot es true; false en caso contrario</returns>
     Task<bool> ValidateSpaceHasIoTEnabledAsync(long spaceId);
+
+    /// <summary>
+    /// Obtiene el estado actual de un espacio.
+    /// </summary>
+    /// <param name="spaceId">ID del espacio a consultar</param>
+    /// <returns>El estado del espacio como string (ej: "Published", "Accepted", "Finished", "Cancelled"), o null si no existe</returns>
+    Task<string?> GetSpaceStatusAsync(long spaceId);
 }
+
+
 
