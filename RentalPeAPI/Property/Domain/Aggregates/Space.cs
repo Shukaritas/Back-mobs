@@ -152,7 +152,7 @@ public class Space
 
     /// <summary>
     /// Cancela el espacio por el Homeowner.
-    /// Solo se puede cancelar desde estado Pending (Published).
+    /// Se puede cancelar desde estados Published o Accepted, incluso si ya hay un Remodelador asignado.
     /// El requestingUserId debe ser el propietario del espacio.
     /// </summary>
     public void CancelProject(Guid requestingUserId)
@@ -161,8 +161,8 @@ public class Space
             throw new ArgumentException("El ID del usuario solicitante no puede estar vacío.", nameof(requestingUserId));
         if (requestingUserId != HomeownerId)
             throw new InvalidOperationException("Solo el propietario del espacio puede cancelar el proyecto.");
-        if (Status != SpaceStatus.Published)
-            throw new InvalidOperationException("Solo se pueden cancelar espacios en estado Published.");
+        if (Status == SpaceStatus.Finished || Status == SpaceStatus.Cancelled)
+            throw new InvalidOperationException("No se puede cancelar un espacio que ya ha sido completado o cancelado previamente.");
         
         Status = SpaceStatus.Cancelled;
     }

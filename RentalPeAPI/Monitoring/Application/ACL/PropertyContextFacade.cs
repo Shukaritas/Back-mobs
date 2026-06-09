@@ -45,6 +45,19 @@ public class PropertyContextFacade : IPropertyContextFacade
 
         return (space.HomeownerId, space.RemodelerId);
     }
+
+    /// <summary>
+    /// Obtiene los IDs de espacios asociados a un usuario (como Owner o Remodeler).
+    /// Se utiliza en Monitoring para filtrar tareas del usuario.
+    /// </summary>
+    public async Task<IEnumerable<long>> GetSpaceIdsByUserIdAsync(Guid userId)
+    {
+        var spaces = await _spaceRepository.ListAsync();
+        return spaces
+            .Where(s => s.HomeownerId == userId || s.RemodelerId == userId)
+            .Select(s => s.Id)
+            .ToList();
+    }
 }
 
 

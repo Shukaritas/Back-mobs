@@ -154,6 +154,22 @@ public class SpaceAppService
         return spaces.Select(ToDto).ToList();
     }
 
+    /// <summary>
+    /// Obtiene todos los espacios asociados a un usuario.
+    /// Retorna espacios donde el usuario es propietario (HomeownerId) o remodelador asignado (RemodelerId).
+    /// </summary>
+    public async Task<IEnumerable<SpaceDto>> GetSpacesByUserIdAsync(GetSpacesByUserIdQuery query)
+    {
+        var spaces = await _spaceRepository.ListAsync();
+        
+        // Filtrar espacios donde el usuario es owner o remodeler
+        var userSpaces = spaces.Where(s => 
+            s.HomeownerId == query.UserId || s.RemodelerId == query.UserId
+        ).ToList();
+        
+        return userSpaces.Select(ToDto).ToList();
+    }
+
     public async Task<SpaceDto?> CompleteProjectAsync(CompleteSpaceCommand command)
     {
         var space = await _spaceRepository.FindByIdAsync(command.SpaceId);
@@ -166,7 +182,7 @@ public class SpaceAppService
         await _monitoringFacade.DispatchNotificationAsync(
             space.HomeownerId,
             space.Id,
-            "Proyecto Finalizado",
+            $"Proyecto {space.Title} Finalizado",
             "Has marcado la obra como finalizada con éxito."
         );
         
@@ -176,8 +192,8 @@ public class SpaceAppService
             await _monitoringFacade.DispatchNotificationAsync(
                 space.RemodelerId.Value,
                 space.Id,
-                "Proyecto Finalizado",
-                "El propietario ha dado la conformidad final de la obra. ¡Excelente trabajo!"
+                $"Proyecto {space.Title} Finalizado",
+                $"El propietario  ha dado la conformidad final de la obra. ¡Excelente trabajo!"
             );
         }
 
@@ -210,7 +226,7 @@ public class SpaceAppService
                 remodelerId.Value,
                 space.Id,
                 "Proyecto Cancelado",
-                "El propietario ha cancelado el proyecto en el que estabas asignado."
+                $"El propietario  ha cancelado el proyecto en el que estabas asignado."
             );
         }
         

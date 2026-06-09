@@ -45,29 +45,26 @@ public class CancelSpaceCommandHandler
         // Persistir cambios en Property
         await _unitOfWork.CompleteAsync();
 
-        // 📢 NOTIFICACIÓN AL HOMEOWNER (PROPIETARIO)
-        // El propietario cancela exitosamente la solicitud y se desactivan los sensores
+        // Notificación al Propietario
         await _monitoringFacade.DispatchNotificationAsync(
             space.HomeownerId,
             request.SpaceId,
             "Solicitud Cancelada",
-            "Has cancelado exitosamente la solicitud para este espacio. Los sensores han sido desactivados."
+            $"El proyecto ha sido cancelado exitosamente. Todos los sensores vinculados han sido desactivados."
         );
 
-        // 📢 NOTIFICACIÓN AL REMODELADOR (SI APLICA)
-        // Si había un remodelador asignado, notificarle que el proyecto fue cancelado
+        // Notificación al Remodelador (si estaba asignado)
         if (remodelerId.HasValue)
         {
             await _monitoringFacade.DispatchNotificationAsync(
                 remodelerId.Value,
                 request.SpaceId,
                 "Proyecto Cancelado",
-                "El propietario ha cancelado el proyecto en el que estabas asignado."
+                "El propietario ha cancelado el proyecto en el que estabas asignado. Los sensores vinculados han sido desactivados."
             );
         }
 
-        // 🔌 Apagar automáticamente todos los dispositivos IoT del espacio
-        // Esto se ejecuta DESPUÉS de confirmar la cancelación del espacio y despachar notificaciones
+        // Apagar automáticamente todos los dispositivos IoT del espacio
         await _monitoringFacade.DisableAllDevicesForSpaceAsync(request.SpaceId);
 
         return true;

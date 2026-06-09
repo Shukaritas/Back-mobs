@@ -27,6 +27,14 @@ public interface IPropertyContextFacade
     /// <param name="spaceId">ID del espacio</param>
     /// <returns>Una tupla con (OwnerId, RemodelerId) si el espacio existe; null en caso contrario</returns>
     Task<(Guid OwnerId, Guid? RemodelerId)?> GetSpaceUsersAsync(long spaceId);
+
+    /// <summary>
+    /// Obtiene los IDs de espacios asociados a un usuario (como Owner o Remodeler).
+    /// Se utiliza en Monitoring para filtrar tareas del usuario.
+    /// </summary>
+    /// <param name="userId">ID del usuario (Homeowner o Remodeler)</param>
+    /// <returns>Lista de IDs de espacios donde el usuario es Owner o Remodeler</returns>
+    Task<IEnumerable<long>> GetSpaceIdsByUserIdAsync(Guid userId);
 }
 
 

@@ -160,7 +160,7 @@ public class WorkItemController : ControllerBase
     /// - Solo usuarios con rol "Remodeler" pueden contactar este endpoint
     /// - Permite especificar Status, PlannedStartDate y PlannedEndDate
     /// - El CreatedByUserId se extrae del JWT y NO puede ser sobrescrito por el cliente
-    /// - Las fechas se validan en el agregado de dominio (start < end)
+    /// - Las fechas se validan en el agregado de dominio (start &lt; end)
     /// 
     /// Devuelve 201 Created con el WorkItemResource completo.
     /// </summary>
@@ -264,6 +264,64 @@ public class WorkItemController : ControllerBase
         catch (Exception ex)
         {
             return BadRequest(new { error = $"Error al obtener la tarea: {ex.Message}" });
+        }
+    }
+
+    /// <summary>
+    /// Obtiene todas las tareas asociadas a un espacio específico.
+    /// Requiere autenticación válida.
+    /// </summary>
+    /// <param name="spaceId">ID del espacio</param>
+    /// <returns>200 OK con lista de WorkItemResource</returns>
+    /// <response code="200">Lista de tareas del espacio</response>
+    /// <response code="401">Token JWT inválido o ausente</response>
+    [HttpGet("space/{spaceId:long}")]
+    [ProducesResponseType(200)]
+    [ProducesResponseType(401)]
+    public async Task<IActionResult> GetWorkItemsBySpaceId(long spaceId)
+    {
+        try
+        {
+            var query = new GetWorkItemsBySpaceIdQuery(spaceId);
+            var result = await _mediator.Send(query);
+
+            return Ok(result);
+        }
+        catch (Exception ex)
+        {
+            return BadRequest(new { error = $"Error al obtener tareas del espacio: {ex.Message}" });
+        }
+    }
+
+    /// <summary>
+    /// Obtiene todas las tareas asociadas al usuario autenticado.
+    /// Retorna tareas en espacios donde el usuario es propietario (Homeowner) o remodelador asignado (Remodeler).
+    /// 
+    /// GET /api/v1/monitoring/tasks/my-tasks
+    /// </summary>
+    /// <returns>200 OK con lista de WorkItemResource</returns>
+    /// <response code="200">Lista de tareas del usuario</response>
+    /// <response code="401">Token JWT inválido o no autorizado</response>
+    [HttpGet("my-tasks")]
+    [ProducesResponseType(200)]
+    [ProducesResponseType(401)]
+    public async Task<IActionResult> GetMyTasks()
+    {
+        // Extraer el ID del usuario desde el token JWT
+        var userIdClaim = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        if (string.IsNullOrEmpty(userIdClaim) || !Guid.TryParse(userIdClaim, out var userId))
+            return Unauthorized(new { error = "Token JWT inválido o sin NameIdentifier." });
+
+        try
+        {
+            var query = new GetWorkItemsByUserIdQuery(userId);
+            var result = await _mediator.Send(query);
+
+            return Ok(result);
+        }
+        catch (Exception ex)
+        {
+            return BadRequest(new { error = $"Error al obtener las tareas del usuario: {ex.Message}" });
         }
     }
 

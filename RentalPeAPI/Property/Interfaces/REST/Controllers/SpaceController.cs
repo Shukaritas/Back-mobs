@@ -36,6 +36,39 @@ namespace RentalPeAPI.Property.Interfaces.Rest.Controllers
             var resources = spaces.Select(SpaceResourceAssembler.ToResource);
             return Ok(resources);
         }
+
+        /// <summary>
+        /// Obtiene todos los espacios asociados al usuario autenticado.
+        /// Retorna espacios donde el usuario es propietario (Homeowner) o remodelador asignado (Remodeler).
+        /// 
+        /// GET /api/v1/spaces/my-spaces
+        /// </summary>
+        /// <returns>200 OK con lista de SpaceResource</returns>
+        /// <response code="200">Lista de espacios del usuario</response>
+        /// <response code="401">Token JWT inválido o no autorizado</response>
+        [HttpGet("my-spaces")]
+        [Authorize(Roles = "Homeowner,Remodeler")]
+        [ProducesResponseType(200)]
+        [ProducesResponseType(401)]
+        public async Task<ActionResult<IEnumerable<SpaceResource>>> GetMySpaces()
+        {
+            // Extraer el ID del usuario desde el token JWT
+            var userIdClaim = User.FindFirstValue(System.Security.Claims.ClaimTypes.NameIdentifier);
+            if (string.IsNullOrEmpty(userIdClaim) || !Guid.TryParse(userIdClaim, out var userId))
+                return Unauthorized(new { error = "Token JWT inválido o sin NameIdentifier." });
+
+            try
+            {
+                var query = new GetSpacesByUserIdQuery(userId);
+                var spaces = await _spaceAppService.GetSpacesByUserIdAsync(query);
+                var resources = spaces.Select(SpaceResourceAssembler.ToResource);
+                return Ok(resources);
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new { error = $"Error al obtener los espacios del usuario: {ex.Message}" });
+            }
+        }
         
         [HttpGet("{id}")]
         [Authorize(Roles = "Homeowner,Remodeler")]
