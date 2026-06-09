@@ -47,6 +47,11 @@ public class WorkItemConfiguration : IEntityTypeConfiguration<WorkItem>
             .HasMaxLength(2048)
             .IsRequired(false); // Nullable
 
+        // Precio de la tarea (cotización)
+        builder.Property(t => t.Price)
+            .HasColumnName("price")
+            .IsRequired();
+
         builder.Property(t => t.PlannedStartDate)
             .HasColumnName("planned_start_date")
             .IsRequired(false); // Nullable

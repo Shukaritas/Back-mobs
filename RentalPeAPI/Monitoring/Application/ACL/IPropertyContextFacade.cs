@@ -35,7 +35,14 @@ public interface IPropertyContextFacade
     /// <param name="userId">ID del usuario (Homeowner o Remodeler)</param>
     /// <returns>Lista de IDs de espacios donde el usuario es Owner o Remodeler</returns>
     Task<IEnumerable<long>> GetSpaceIdsByUserIdAsync(Guid userId);
+
+    /// <summary>
+    /// Actualiza el costo total acumulado de las tareas de un espacio y verifica sobrecosto.
+    /// Comunica a Property BC el nuevo costo total para que evalúe si se ha excedido el presupuesto.
+    /// </summary>
+    /// <param name="spaceId">ID del espacio</param>
+    /// <param name="totalPricing">Suma total del precio de todas las tareas del espacio</param>
+    Task UpdateSpaceTotalPricingAsync(long spaceId, decimal totalPricing);
+
 }
-
-
 

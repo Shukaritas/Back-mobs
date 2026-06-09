@@ -28,6 +28,9 @@ public class WorkItem
     public DateTime? PlannedStartDate { get; set; } // Opcional
     public DateTime? PlannedEndDate { get; set; } // Opcional
 
+    // Precio de la tarea (cotización del remodelador)
+    public decimal Price { get; private set; } = 0m;
+    
     // Estado y auditoría
     public string Status { get; set; } = "PENDING";
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
@@ -48,7 +51,8 @@ public class WorkItem
         string? photoUrl = null,
         DateTime? plannedStartDate = null,
         DateTime? plannedEndDate = null,
-        string? initialStatus = null)
+        string? initialStatus = null,
+        decimal price = 0)
     {
         if (spaceId <= 0)
             throw new ArgumentException("Space ID is required.", nameof(spaceId));
@@ -56,6 +60,8 @@ public class WorkItem
             throw new ArgumentException("CreatedByUserId is required.", nameof(createdByUserId));
         if (string.IsNullOrWhiteSpace(title))
             throw new ArgumentException("Title is required.", nameof(title));
+        if (price < 0)
+            throw new ArgumentException("Price cannot be negative.", nameof(price));
         
         // Validar que si se proporciona una fecha, la otra también debe estar presente y válida
         if (plannedStartDate.HasValue && plannedEndDate.HasValue)
@@ -75,6 +81,7 @@ public class WorkItem
         PhotoUrl = photoUrl;
         PlannedStartDate = plannedStartDate;
         PlannedEndDate = plannedEndDate;
+        Price = price;
         Status = !string.IsNullOrWhiteSpace(initialStatus) ? initialStatus.ToUpper() : "PENDING";
         CreatedAt = DateTime.UtcNow;
         CompletedAt = null;
@@ -117,6 +124,18 @@ public class WorkItem
         Title = title;
         Description = description;
         PhotoUrl = photoUrl;
+    }
+
+    /// <summary>
+    /// Método de dominio para actualizar el precio (cotización) de la tarea.
+    /// Solo el remodelador puede establecer el precio de sus tareas.
+    /// </summary>
+    public void UpdatePrice(decimal newPrice)
+    {
+        if (newPrice < 0)
+            throw new ArgumentException("Price cannot be negative.", nameof(newPrice));
+        
+        Price = newPrice;
     }
 
     /// <summary>

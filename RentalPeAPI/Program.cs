@@ -116,7 +116,11 @@ builder.Services.AddSwaggerGen(c =>
 
 // Monitoring ACL
 builder.Services.AddScoped<IMonitoringContextFacade, MonitoringContextFacade>();
-builder.Services.AddScoped<IPropertyContextFacade, PropertyContextFacade>();
+builder.Services.AddScoped<IPropertyContextFacade>(provider =>
+    new PropertyContextFacade(
+        provider.GetRequiredService<ISpaceRepository>(),
+        provider.GetRequiredService<IMediator>()
+    ));
 
 // Función para añadir DbContext, simplificando la lógica
 void AddMySqlDbContext(IServiceCollection services, IConfiguration configuration, IWebHostEnvironment environment)
@@ -189,7 +193,7 @@ builder.Services.AddScoped<INotificationRepository, NotificationRepository>();
 
 var app = builder.Build();
 
-// EnsureCreated
+// Apply Database Migrations
 using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();

@@ -22,6 +22,8 @@ public class Space
     public SpaceType SpaceType { get; private set; }
     public decimal DimensionsSquareMeters { get; private set; }
     public decimal EstimatedBudget { get; private set; }
+    public decimal EndingPricing { get; private set; } = 0m;
+    public bool IsOverBudgetNotified { get; private set; } = false;
     public string Currency { get; private set; } = "PEN";
     public SpaceStatus Status { get; private set; } = SpaceStatus.Published;
     public bool HasIot { get; private set; }
@@ -174,6 +176,27 @@ public class Space
     {
         Images.Clear();
         Images.AddRange(newImages ?? new List<string>());
+    }
+
+    /// <summary>
+    /// Actualiza el costo total de las tareas del espacio.
+    /// El valor representa la suma de los precios de todas las tareas asociadas.
+    /// </summary>
+    public void UpdateEndingPricing(decimal totalPricing)
+    {
+        if (totalPricing < 0)
+            throw new ArgumentException("El costo total no puede ser negativo.", nameof(totalPricing));
+        
+        EndingPricing = totalPricing;
+    }
+
+    /// <summary>
+    /// Marca el espacio como notificado sobre sobrecosto.
+    /// Se utiliza para evitar múltiples notificaciones cuando ya se alertó al propietario.
+    /// </summary>
+    public void MarkAsOverBudgetNotified()
+    {
+        IsOverBudgetNotified = true;
     }
 
     /// <summary>

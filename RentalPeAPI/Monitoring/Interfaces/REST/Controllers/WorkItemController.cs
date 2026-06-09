@@ -113,7 +113,8 @@ public class WorkItemController : ControllerBase
                 resource.Description,
                 resource.PhotoUrl,
                 null,
-                null
+                null,
+                0m // Price es siempre 0 para solicitudes de Homeowner
             );
 
             var taskId = await _mediator.Send(command);
@@ -132,6 +133,7 @@ public class WorkItemController : ControllerBase
                 createdWorkItem.PhotoUrl,
                 createdWorkItem.PlannedStartDate,
                 createdWorkItem.PlannedEndDate,
+                createdWorkItem.Price,
                 createdWorkItem.Status,
                 createdWorkItem.CreatedAt,
                 createdWorkItem.CompletedAt
@@ -196,7 +198,8 @@ public class WorkItemController : ControllerBase
                 resource.Description,
                 resource.PhotoUrl,
                 resource.PlannedStartDate,
-                resource.PlannedEndDate
+                resource.PlannedEndDate,
+                resource.Price
             );
 
             var taskId = await _mediator.Send(command);
@@ -215,6 +218,7 @@ public class WorkItemController : ControllerBase
                 createdWorkItem.PhotoUrl,
                 createdWorkItem.PlannedStartDate,
                 createdWorkItem.PlannedEndDate,
+                createdWorkItem.Price,
                 createdWorkItem.Status,
                 createdWorkItem.CreatedAt,
                 createdWorkItem.CompletedAt
@@ -385,35 +389,36 @@ public class WorkItemController : ControllerBase
                 await _unitOfWork.CompleteAsync();
             }
 
-            // Transformar la entidad actualizada a WorkItemResource
-            var workItemResource = new WorkItemResource(
-                workItem.Id,
-                workItem.SpaceId,
-                workItem.CreatedByUserId,
-                workItem.Title,
-                workItem.Description,
-                workItem.PhotoUrl,
-                workItem.PlannedStartDate,
-                workItem.PlannedEndDate,
-                workItem.Status,
-                workItem.CreatedAt,
-                workItem.CompletedAt
-            );
+             // Transformar la entidad actualizada a WorkItemResource
+             var workItemResource = new WorkItemResource(
+                 workItem.Id,
+                 workItem.SpaceId,
+                 workItem.CreatedByUserId,
+                 workItem.Title,
+                 workItem.Description,
+                 workItem.PhotoUrl,
+                 workItem.PlannedStartDate,
+                 workItem.PlannedEndDate,
+                 workItem.Price,
+                 workItem.Status,
+                 workItem.CreatedAt,
+                 workItem.CompletedAt
+             );
 
-            return Ok(workItemResource);
-        }
-        catch (ArgumentException ex)
-        {
-            return BadRequest(new { error = ex.Message });
-        }
-        catch (Exception ex)
-        {
-            return BadRequest(new { error = $"Error al actualizar el contenido: {ex.Message}" });
-        }
-    }
+             return Ok(workItemResource);
+         }
+         catch (ArgumentException ex)
+         {
+             return BadRequest(new { error = ex.Message });
+         }
+         catch (Exception ex)
+         {
+             return BadRequest(new { error = $"Error al actualizar el contenido: {ex.Message}" });
+         }
+     }
 
-    /// <summary>
-    /// [INTENT-DRIVEN] Actualiza el progreso (estado y fechas) de una tarea.
+     /// <summary>
+     /// [INTENT-DRIVEN] Actualiza el progreso (estado y fechas) de una tarea.
     /// 
     /// Reglas de Autorización ESTRICTAS:
     /// - Solo el Remodeler asignado al Space (User ID == Space.RemodelerId) puede usar este endpoint
@@ -484,48 +489,34 @@ public class WorkItemController : ControllerBase
                 await _unitOfWork.CompleteAsync();
             }
 
-            // Transformar la entidad actualizada a WorkItemResource
-            var workItemResource = new WorkItemResource(
-                updatedWorkItem.Id,
-                updatedWorkItem.SpaceId,
-                updatedWorkItem.CreatedByUserId,
-                updatedWorkItem.Title,
-                updatedWorkItem.Description,
-                updatedWorkItem.PhotoUrl,
-                updatedWorkItem.PlannedStartDate,
-                updatedWorkItem.PlannedEndDate,
-                updatedWorkItem.Status,
-                updatedWorkItem.CreatedAt,
-                updatedWorkItem.CompletedAt
-            );
+             // Transformar la entidad actualizada a WorkItemResource
+             var workItemResource = new WorkItemResource(
+                 updatedWorkItem.Id,
+                 updatedWorkItem.SpaceId,
+                 updatedWorkItem.CreatedByUserId,
+                 updatedWorkItem.Title,
+                 updatedWorkItem.Description,
+                 updatedWorkItem.PhotoUrl,
+                 updatedWorkItem.PlannedStartDate,
+                 updatedWorkItem.PlannedEndDate,
+                 updatedWorkItem.Price,
+                 updatedWorkItem.Status,
+                 updatedWorkItem.CreatedAt,
+                 updatedWorkItem.CompletedAt
+             );
 
-            return Ok(workItemResource);
-        }
-        catch (ArgumentException ex)
-        {
-            return BadRequest(new { error = ex.Message });
-        }
-        catch (Exception ex)
-        {
-            return BadRequest(new { error = $"Error al actualizar el progreso: {ex.Message}" });
-        }
-    }
+             return Ok(workItemResource);
+         }
+         catch (ArgumentException ex)
+         {
+             return BadRequest(new { error = ex.Message });
+         }
+         catch (Exception ex)
+         {
+             return BadRequest(new { error = $"Error al actualizar el progreso: {ex.Message}" });
+         }
+     }
 
-    /// <summary>
-    /// [INTENT-DRIVEN] Elimina una tarea.
-    /// 
-    /// Reglas de Autorización ESTRICTAS:
-    /// - Solo el usuario que creó EXACTAMENTE la tarea (User ID == CreatedByUserId) puede eliminarla
-    /// - Si no es el creador exacto: 403 Forbid
-    /// 
-    /// El usuario se extrae del token JWT.
-    /// </summary>
-    /// <param name="id">ID de la tarea a eliminar</param>
-    /// <returns>204 No Content si se eliminó correctamente</returns>
-    /// <response code="204">Tarea eliminada exitosamente</response>
-    /// <response code="401">Token JWT inválido o ausente</response>
-    /// <response code="403">Usuario no es el creador de la tarea</response>
-    /// <response code="404">Tarea no encontrada</response>
     [HttpDelete("{id:int}")]
     [ProducesResponseType(204)]
     [ProducesResponseType(401)]

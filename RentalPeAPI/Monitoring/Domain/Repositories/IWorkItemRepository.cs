@@ -18,4 +18,7 @@ public interface IWorkItemRepository
 
     // Eliminar una tarea por su ID
     Task DeleteAsync(int id);
+
+    // Sumar todos los precios de las tareas asociadas a un espacio
+    Task<decimal> SumPricesBySpaceIdAsync(long spaceId);
 }

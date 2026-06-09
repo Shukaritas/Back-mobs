@@ -16,5 +16,6 @@ public record CreateWorkItemCommand(
     string Description,
     string? PhotoUrl,
     DateTime? PlannedStartDate,
-    DateTime? PlannedEndDate
-) : IRequest<int>; 
+    DateTime? PlannedEndDate,
+    decimal Price = 0
+) : IRequest<int>;

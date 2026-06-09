@@ -1,5 +1,4 @@
-﻿using RentalPeAPI.Property.Domain.Aggregates;
-
+﻿
 namespace RentalPeAPI.Property.Application.Internal.Dtos;
 
 public class SpaceDto
@@ -13,6 +12,7 @@ public class SpaceDto
     public string SpaceType { get; set; } = string.Empty;
     public decimal DimensionsSquareMeters { get; set; }
     public decimal EstimatedBudget { get; set; }
+    public decimal EndingPricing { get; set; } = 0m;
     public string Currency { get; set; } = "PEN";
     public string Status { get; set; } = "Published";
     public bool HasIot { get; set; }

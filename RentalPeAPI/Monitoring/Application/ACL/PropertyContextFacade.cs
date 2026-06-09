@@ -1,4 +1,5 @@
 ﻿using RentalPeAPI.Property.Domain.Repositories;
+using MediatR;
 
 namespace RentalPeAPI.Monitoring.Application.ACL;
 
@@ -9,10 +10,12 @@ namespace RentalPeAPI.Monitoring.Application.ACL;
 public class PropertyContextFacade : IPropertyContextFacade
 {
     private readonly ISpaceRepository _spaceRepository;
+    private readonly IMediator _mediator;
 
-    public PropertyContextFacade(ISpaceRepository spaceRepository)
+    public PropertyContextFacade(ISpaceRepository spaceRepository, IMediator mediator)
     {
         _spaceRepository = spaceRepository;
+        _mediator = mediator;
     }
 
     /// <summary>
@@ -57,6 +60,17 @@ public class PropertyContextFacade : IPropertyContextFacade
             .Where(s => s.HomeownerId == userId || s.RemodelerId == userId)
             .Select(s => s.Id)
             .ToList();
+    }
+
+    /// <summary>
+    /// Actualiza el costo total acumulado de las tareas de un espacio.
+    /// Despacha un comando interno de Property para evaluar sobrecosto.
+    /// </summary>
+    public async Task UpdateSpaceTotalPricingAsync(long spaceId, decimal totalPricing)
+    {
+        await _mediator.Send(
+            new RentalPeAPI.Property.Application.Internal.CommandServices.UpdateSpaceTotalPricingCommand(spaceId,
+                totalPricing));
     }
 }
 

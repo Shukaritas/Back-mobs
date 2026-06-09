@@ -11,6 +11,7 @@
         public string SpaceType { get; set; } = "";
         public decimal DimensionsSquareMeters { get; set; }
         public decimal EstimatedBudget { get; set; }
+        public decimal EndingPricing { get; set; } = 0m;
         public string Currency { get; set; } = "PEN";
         public bool HasIot { get; set; }
         public List<string> Images { get; set; } = new();

@@ -34,6 +34,7 @@ public class GetWorkItemsBySpaceIdQueryHandler : IRequestHandler<GetWorkItemsByS
             wi.PhotoUrl,
             wi.PlannedStartDate,
             wi.PlannedEndDate,
+            wi.Price,
             wi.Status,
             wi.CreatedAt,
             wi.CompletedAt

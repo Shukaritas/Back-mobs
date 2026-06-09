@@ -47,6 +47,15 @@ public class SpaceConfiguration : IEntityTypeConfiguration<Space>
             .IsRequired()
             .HasColumnType("decimal(18, 2)");
 
+        builder.Property(s => s.EndingPricing)
+            .IsRequired()
+            .HasColumnType("decimal(18, 2)")
+            .HasDefaultValue(0m);
+
+        builder.Property(s => s.IsOverBudgetNotified)
+            .IsRequired()
+            .HasDefaultValue(false);
+
         builder.Property(s => s.Currency)
             .IsRequired()
             .HasMaxLength(3)

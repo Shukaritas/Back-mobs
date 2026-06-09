@@ -45,6 +45,10 @@ public class CreateTaskPlanResource
     [JsonPropertyName("plannedEndDate")]
     public DateTime? PlannedEndDate { get; set; } // Opcional pero validado en el dominio
 
+    [Range(0, 999999999999.99, ErrorMessage = "El precio no puede ser negativo")]
+    [JsonPropertyName("price")]
+    public decimal Price { get; set; } = 0;
+
     public CreateTaskPlanResource() { }
 
     public CreateTaskPlanResource(
@@ -54,7 +58,8 @@ public class CreateTaskPlanResource
         string status,
         string? photoUrl = null,
         DateTime? plannedStartDate = null,
-        DateTime? plannedEndDate = null)
+        DateTime? plannedEndDate = null,
+        decimal price = 0)
     {
         SpaceId = spaceId;
         Title = title;
@@ -63,6 +68,7 @@ public class CreateTaskPlanResource
         Status = status;
         PlannedStartDate = plannedStartDate;
         PlannedEndDate = plannedEndDate;
+        Price = price;
     }
 }
 

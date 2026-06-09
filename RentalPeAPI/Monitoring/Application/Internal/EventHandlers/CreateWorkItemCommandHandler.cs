@@ -58,12 +58,20 @@ public class CreateWorkItemCommandHandler : IRequestHandler<CreateWorkItemComman
             command.Description,
             command.PhotoUrl,
             command.PlannedStartDate,
-            command.PlannedEndDate
+            command.PlannedEndDate,
+            price: command.Price
         );
 
         // Guardar en la BD
         await _workItemRepository.AddAsync(workItem);
         await _unitOfWork.CompleteAsync();
+
+        // Si la tarea tiene precio, actualizar el costo total en Property Context
+        if (command.Price > 0)
+        {
+            var totalPricing = await _workItemRepository.SumPricesBySpaceIdAsync(workItem.SpaceId);
+            await _propertyFacade.UpdateSpaceTotalPricingAsync(workItem.SpaceId, totalPricing);
+        }
 
         // Devolver el Id generado
         return workItem.Id;

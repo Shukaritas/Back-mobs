@@ -43,4 +43,11 @@ public class WorkItemRepository : IWorkItemRepository
             _context.Tasks.Remove(workItem);
         }
     }
+
+    public async Task<decimal> SumPricesBySpaceIdAsync(long spaceId)
+    {
+        return await _context.Tasks
+            .Where(t => t.SpaceId == spaceId)
+            .SumAsync(t => t.Price);
+    }
 }

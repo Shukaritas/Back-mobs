@@ -52,6 +52,7 @@ public class GetWorkItemsByUserIdQueryHandler : IRequestHandler<GetWorkItemsByUs
                 wi.PhotoUrl,
                 wi.PlannedStartDate,
                 wi.PlannedEndDate,
+                wi.Price,
                 wi.Status,
                 wi.CreatedAt,
                 wi.CompletedAt

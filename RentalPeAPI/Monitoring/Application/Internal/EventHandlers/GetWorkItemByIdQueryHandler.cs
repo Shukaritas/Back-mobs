@@ -38,6 +38,7 @@ public class GetWorkItemByIdQueryHandler : IRequestHandler<GetWorkItemByIdQuery,
             workItem.PhotoUrl,
             workItem.PlannedStartDate,
             workItem.PlannedEndDate,
+            workItem.Price,
             workItem.Status,
             workItem.CreatedAt,
             workItem.CompletedAt
