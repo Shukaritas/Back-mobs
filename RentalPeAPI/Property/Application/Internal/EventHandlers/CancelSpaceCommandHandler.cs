@@ -26,7 +26,8 @@ public class CancelSpaceCommandHandler
     }
 
     /// <summary>
-    /// Procesa la cancelación del espacio y dispara automáticamente el apagado de dispositivos.
+    /// Procesa la cancelación del espacio, apaga dispositivos IoT y despacha notificaciones bifurcadas.
+    /// Notifica tanto al Homeowner como al Remodelador (si está asignado).
     /// </summary>
     public async Task<bool> HandleAsync(CancelSpaceCommand request)
     {
@@ -35,14 +36,38 @@ public class CancelSpaceCommandHandler
         if (space == null)
             return false;
 
+        // Guardar el RemodelerId antes de ejecutar la cancelación (por si se limpia en la lógica de dominio)
+        var remodelerId = space.RemodelerId;
+
         // Ejecutar la lógica de dominio de cancelación
         space.CancelProject(request.RequestingUserId);
         
         // Persistir cambios en Property
         await _unitOfWork.CompleteAsync();
 
+        // 📢 NOTIFICACIÓN AL HOMEOWNER (PROPIETARIO)
+        // El propietario cancela exitosamente la solicitud y se desactivan los sensores
+        await _monitoringFacade.DispatchNotificationAsync(
+            space.HomeownerId,
+            request.SpaceId,
+            "Solicitud Cancelada",
+            "Has cancelado exitosamente la solicitud para este espacio. Los sensores han sido desactivados."
+        );
+
+        // 📢 NOTIFICACIÓN AL REMODELADOR (SI APLICA)
+        // Si había un remodelador asignado, notificarle que el proyecto fue cancelado
+        if (remodelerId.HasValue)
+        {
+            await _monitoringFacade.DispatchNotificationAsync(
+                remodelerId.Value,
+                request.SpaceId,
+                "Proyecto Cancelado",
+                "El propietario ha cancelado el proyecto en el que estabas asignado."
+            );
+        }
+
         // 🔌 Apagar automáticamente todos los dispositivos IoT del espacio
-        // Esto se ejecuta DESPUÉS de confirmar la cancelación del espacio
+        // Esto se ejecuta DESPUÉS de confirmar la cancelación del espacio y despachar notificaciones
         await _monitoringFacade.DisableAllDevicesForSpaceAsync(request.SpaceId);
 
         return true;

@@ -11,6 +11,8 @@ using RentalPeAPI.Monitoring.Application.Internal.CommandServices;
 using RentalPeAPI.Monitoring.Domain.Repositories;
 using RentalPeAPI.Monitoring.Interfaces.REST.Resources;
 using RentalPeAPI.Shared.Domain.Repositories;
+using RentalPeAPI.Monitoring.Application.ACL;
+using RentalPeAPI.Property.Domain.Repositories;
 
 namespace RentalPeAPI.Monitoring.Interfaces.REST.Controllers;
 
@@ -28,12 +30,21 @@ public class ReadingsController : ControllerBase
     private readonly IIoTDeviceRepository _deviceRepository;
     private readonly IUnitOfWork _unitOfWork;
     private readonly IMediator _mediator;
+    private readonly IPropertyContextFacade _propertyFacade;
+    private readonly ISpaceRepository _spaceRepository;
 
-    public ReadingsController(IIoTDeviceRepository deviceRepository, IUnitOfWork unitOfWork, IMediator mediator)
+    public ReadingsController(
+        IIoTDeviceRepository deviceRepository, 
+        IUnitOfWork unitOfWork, 
+        IMediator mediator,
+        IPropertyContextFacade propertyFacade,
+        ISpaceRepository spaceRepository)
     {
         _deviceRepository = deviceRepository;
         _unitOfWork = unitOfWork;
         _mediator = mediator;
+        _propertyFacade = propertyFacade;
+        _spaceRepository = spaceRepository;
     }
 
     /// <summary>
@@ -58,9 +69,7 @@ public class ReadingsController : ControllerBase
     /// Método privado helper para validar umbrales y disparar notificación automática
     /// si se detecta una anomalía telemetría (PASO 5C).
     /// 
-    /// Lógica simplificada:
-    /// - Si el valor excede umbrales (is_in_alert_state = 1), dispara notificación directamente
-    /// - Sin validar estado previo, se envía cada vez que se detecta anomalía
+    /// Despacha notificaciones bifurcadas tanto al Homeowner como al Remodeler (si aplica).
     /// </summary>
     private async Task ValidateThresholdsAndDispatchNotificationAsync(
         RentalPeAPI.Monitoring.Domain.Model.Aggregates.IoTDevice device)
@@ -68,22 +77,43 @@ public class ReadingsController : ControllerBase
         var (minThreshold, maxThreshold) = device.GetThresholds();
         bool isCurrentlyInAlert = device.Value < minThreshold || device.Value > maxThreshold;
 
-        // Si está en alerta, disparar notificación directamente (sin validar estado previo)
+        // Si está en alerta, disparar notificaciones bifurcadas
         if (isCurrentlyInAlert)
         {
             device.UpdateAlertState(true);
             await _unitOfWork.CompleteAsync();
 
-            // Despachar notificación de alerta crítica con valores formateados a 2 decimales
-            var notificationCommand = new CreateNotificationCommand(
-                device.CreatedByUserId,
-                device.SpaceId,
-                $" Alerta Crítica IoT: {device.Name}",
-                $"El sensor '{device.Name}' ha detectado una lectura anómala. " +
-                $"Métrica: {device.MetricName}, Valor: {device.Value:F2} {device.Unit}, " +
-                $"Rango permitido: {minThreshold:F2} - {maxThreshold:F2}."
-            );
-            await _mediator.Send(notificationCommand);
+            // Obtener los usuarios del espacio desde la fachada
+            var spaceUsers = await _propertyFacade.GetSpaceUsersAsync(device.SpaceId);
+            
+            if (spaceUsers.HasValue)
+            {
+                var (ownerId, remodelerId) = spaceUsers.Value;
+                
+                string alertTitle = $"Alerta Crítica IoT: {device.Name}";
+                string alertMessage = $"El sensor '{device.Name}' ha detectado una lectura anómala. " +
+                    $"Métrica: {device.MetricName}, Valor: {device.Value:F2} {device.Unit}, " +
+                    $"Rango permitido: {minThreshold:F2} - {maxThreshold:F2}.";
+                
+                var notificationCommandHomeowner = new CreateNotificationCommand(
+                    ownerId,
+                    device.SpaceId,
+                    alertTitle,
+                    alertMessage
+                );
+                await _mediator.Send(notificationCommandHomeowner);
+                
+                if (remodelerId.HasValue)
+                {
+                    var notificationCommandRemodeler = new CreateNotificationCommand(
+                        remodelerId.Value,
+                        device.SpaceId,
+                        alertTitle,
+                        alertMessage
+                    );
+                    await _mediator.Send(notificationCommandRemodeler);
+                }
+            }
         }
     }
 

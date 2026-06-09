@@ -39,5 +39,11 @@ public interface IMonitoringContextFacade
     /// Se utiliza cuando un proyecto se cancela para optimizar recursos.
     /// </summary>
     Task DisableAllDevicesForSpaceAsync(long spaceId);
+
+    /// <summary>
+    /// Despacha una notificación a un usuario específico vinculada a un espacio.
+    /// Se utiliza para comunicar eventos importantes (completación, cancelación, etc.) de forma reactiva.
+    /// </summary>
+    Task DispatchNotificationAsync(Guid userId, long spaceId, string title, string message);
 }
 

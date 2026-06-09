@@ -19,6 +19,14 @@ public interface IPropertyContextFacade
     /// <param name="spaceId">ID del espacio a consultar</param>
     /// <returns>El estado del espacio como string (ej: "Published", "Accepted", "Finished", "Cancelled"), o null si no existe</returns>
     Task<string?> GetSpaceStatusAsync(long spaceId);
+
+    /// <summary>
+    /// Extrae los usuarios (Homeowner y Remodeler) asociados a un espacio.
+    /// Se utiliza para despachar notificaciones bifurcadas en eventos del ciclo de vida del proyecto.
+    /// </summary>
+    /// <param name="spaceId">ID del espacio</param>
+    /// <returns>Una tupla con (OwnerId, RemodelerId) si el espacio existe; null en caso contrario</returns>
+    Task<(Guid OwnerId, Guid? RemodelerId)?> GetSpaceUsersAsync(long spaceId);
 }
 
 

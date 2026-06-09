@@ -83,18 +83,27 @@ public class UpdateWorkItemStatusCommandHandler : IRequestHandler<UpdateWorkItem
 
         // 6. Persistir cambios
         await _unitOfWork.CompleteAsync();
-
-        // PASO 5B: Si la tarea transicionó exitosamente a COMPLETED, despachar notificación
-        if (transitioningToCompleted)
-        {
-            var notificationCommand = new CreateNotificationCommand(
-                space.HomeownerId,
-                space.Id,
-                "Hito Completado",
-                $"Se ha completado con éxito la tarea: '{workItem.Title}'."
-            );
-            await _mediator.Send(notificationCommand);
-        }
+        
+         if (transitioningToCompleted)
+         {
+             // Se le notifica que una de sus tareas ha sido completada
+             var notificationCommandHomeowner = new CreateNotificationCommand(
+                 space.HomeownerId,
+                 space.Id,
+                 "Hito Completado",
+                 $"Se ha completado con éxito la tarea: '{workItem.Title}'."
+             );
+             await _mediator.Send(notificationCommandHomeowner);
+             
+             // Se le confirma que su tarea completada ha sido registrada
+             var notificationCommandRemodeler = new CreateNotificationCommand(
+                 space.RemodelerId.Value,
+                 space.Id,
+                 "Tarea Completada",
+                 $"La tarea '{workItem.Title}' ha sido marcada como completada. ¡Excelente trabajo!"
+             );
+             await _mediator.Send(notificationCommandRemodeler);
+         }
 
         // 7. Retornar la entidad actualizada
         return workItem;

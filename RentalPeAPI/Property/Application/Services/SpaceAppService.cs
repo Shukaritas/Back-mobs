@@ -82,16 +82,26 @@ public class SpaceAppService
 
         space.AcceptProject(command.RemodelerId);
         await _unitOfWork.CompleteAsync();
-
-        // PASO 5A: Despacho automático de notificación al homeowner (creador del espacio)
-        // Alerta reactiva: "Proyecto Aceptado"
-        var notificationCommand = new CreateNotificationCommand(
+        
+        // El propietario es notificado que su solicitud ha sido aceptada
+        var notificationCommandHomeowner = new CreateNotificationCommand(
             space.HomeownerId,
             space.Id,
-            "Proyecto Aceptado",
+            " Proyecto Aceptado",
             "El remodelador ha aceptado tu solicitud para el espacio. La obra está lista para iniciar."
         );
-        await _mediator.Send(notificationCommand);
+        await _mediator.Send(notificationCommandHomeowner);
+        
+        // El remodelador es notificado que ha sido asignado a este proyecto
+        if (space.RemodelerId.HasValue)
+        {
+            await _monitoringFacade.DispatchNotificationAsync(
+                space.RemodelerId.Value,
+                space.Id,
+                " Oferta Aceptada",
+                "Has sido asignado a este proyecto. Ya puedes empezar a gestionar tus tareas."
+            );
+        }
 
         return ToDto(space);
     }
@@ -151,15 +161,25 @@ public class SpaceAppService
 
         space.CompleteProject(command.RequestingUserId);
         await _unitOfWork.CompleteAsync();
-
-        // Despacho automático de notificación
-        var notificationCommand = new CreateNotificationCommand(
+        
+        // El propietario confirma que la obra ha sido completada exitosamente
+        await _monitoringFacade.DispatchNotificationAsync(
             space.HomeownerId,
             space.Id,
-            "Proyecto Completado",
-            "Tu proyecto ha sido marcado como completado. ¡Gracias por usar RentalPe!"
+            "Proyecto Finalizado",
+            "Has marcado la obra como finalizada con éxito."
         );
-        await _mediator.Send(notificationCommand);
+        
+        // Si existe un remodelador asignado, notificarle que el proyecto fue completado
+        if (space.RemodelerId.HasValue)
+        {
+            await _monitoringFacade.DispatchNotificationAsync(
+                space.RemodelerId.Value,
+                space.Id,
+                "Proyecto Finalizado",
+                "El propietario ha dado la conformidad final de la obra. ¡Excelente trabajo!"
+            );
+        }
 
         return ToDto(space);
     }
@@ -169,19 +189,31 @@ public class SpaceAppService
         var space = await _spaceRepository.FindByIdAsync(command.SpaceId);
         if (space == null) return null;
 
+        // Guardar el RemodelerId antes de ejecutar la cancelación (por si se limpia en la lógica de dominio)
+        var remodelerId = space.RemodelerId;
+
         space.CancelProject(command.RequestingUserId);
         await _unitOfWork.CompleteAsync();
-
-        // Despacho automático de notificación
-        var notificationCommand = new CreateNotificationCommand(
+        
+        // El propietario cancela exitosamente la solicitud y se desactivan los sensores
+        await _monitoringFacade.DispatchNotificationAsync(
             space.HomeownerId,
             space.Id,
-            "Proyecto Cancelado",
-            "Tu proyecto ha sido cancelado según lo solicitado."
+            "Solicitud Cancelada",
+            "Has cancelado exitosamente la solicitud para este espacio. Los sensores han sido desactivados."
         );
-        await _mediator.Send(notificationCommand);
-
-        // 🔌 Apagar automáticamente todos los dispositivos IoT del espacio cancelado
+        
+        // Si había un remodelador asignado, notificarle que el proyecto fue cancelado
+        if (remodelerId.HasValue)
+        {
+            await _monitoringFacade.DispatchNotificationAsync(
+                remodelerId.Value,
+                space.Id,
+                "Proyecto Cancelado",
+                "El propietario ha cancelado el proyecto en el que estabas asignado."
+            );
+        }
+        
         // Esto optimiza recursos al desactivar sensores cuando el proyecto ya no está activo
         await _monitoringFacade.DisableAllDevicesForSpaceAsync(command.SpaceId);
 

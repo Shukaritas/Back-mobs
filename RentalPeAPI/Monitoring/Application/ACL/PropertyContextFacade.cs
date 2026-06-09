@@ -32,6 +32,19 @@ public class PropertyContextFacade : IPropertyContextFacade
         var space = await _spaceRepository.FindByIdAsync(spaceId);
         return space?.Status.ToString();
     }
+
+    /// <summary>
+    /// Extrae los usuarios (Homeowner y Remodeler) asociados a un espacio.
+    /// Se utiliza para despachar notificaciones bifurcadas en eventos del ciclo de vida del proyecto.
+    /// </summary>
+    public async Task<(Guid OwnerId, Guid? RemodelerId)?> GetSpaceUsersAsync(long spaceId)
+    {
+        var space = await _spaceRepository.FindByIdAsync(spaceId);
+        if (space == null)
+            return null;
+
+        return (space.HomeownerId, space.RemodelerId);
+    }
 }
 
 
